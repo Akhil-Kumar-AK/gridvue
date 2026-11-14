@@ -45,6 +45,7 @@ export const api = {
   createProject: (name: string) => call<{ project: { id: string; name: string } }>('POST', '/api/projects', { name }),
   renameProject: (id: string, name: string) => call('PATCH', `/api/projects/${id}`, { name }),
   deleteProject: (id: string) => call('DELETE', `/api/projects/${id}`),
+  sendFeedback: (body: { name: string; kind: 'bug' | 'idea' | 'other'; message: string; page: string; userAgent: string; screenshots: { base64: string }[] }) => call<{ ok: boolean; emailed: boolean; configured: boolean }>('POST', '/api/feedback', body),
   members: (id: string) => call<{ owner: User; members: (User & { role: 'editor' | 'viewer' })[] }>('GET', `/api/files/${id}/members`),
   addMember: (id: string, email: string, role: 'editor' | 'viewer') => call('POST', `/api/files/${id}/members`, { email, role }),
   removeMember: (id: string, userId: string) => call('DELETE', `/api/files/${id}/members/${userId}`),

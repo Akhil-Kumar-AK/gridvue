@@ -8,6 +8,7 @@ import { Player, pickStart } from './proto/Player';
 import type { DocumentData } from '@layr/core';
 import { useEditor } from './editor/state';
 import { DialogHost } from './ui/dialogs';
+import { FeedbackButton } from './Feedback';
 import { TabBar, loadTabs, saveTabs, type Tab } from './TabBar';
 
 function useHash() {
@@ -54,6 +55,7 @@ export function App() {
           : <Dashboard user={user} onLogout={async () => { await api.logout(); setUser(null); }} />}
       </div>
       <Toasts /><DialogHost />
+      <FeedbackButton userName={user.name} />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { extname, join, normalize } from 'node:path';
 import { BoardError, createEmptyDocument, DocumentError, emptyBoard, migrate, validateBoard, validateDocument, type BoardData, type DocumentData } from '@layr/core';
 import type { DB } from './db';
 import { hashPassword, hashToken, newToken, verifyPassword } from './auth';
+import { mailConfig, sendMail, type Attachment } from './mailer';
 import { HttpError, Router, parseCookies, readBody, readJson, sendJson, type Ctx } from './http';
 
 export interface Config { trustedOrigins: string[]; maxDocBytes: number; maxAssetBytes: number; cookieSecure: boolean; staticDir?: string }
@@ -374,6 +375,48 @@ export function createApp(db: DB, config: Config = defaultConfig()): Server {
     const { f } = fileRow(ctx.userId!, ctx.params.id, 'owner');
     db.prepare('DELETE FROM file_members WHERE file_id = ? AND user_id = ?').run(f.id, ctx.params.userId);
     return { ok: true };
+  });
+
+  // ---------- feedback: stored, then emailed to the product owner (FEEDBACK_TO) with any screenshots attached ----------
+  const feedbackHits = new Map<string, number[]>();
+  router.add('POST', '/api/feedback', true, async ctx => {
+    const u = ctx.userId!;
+    const recent = (feedbackHits.get(u) ?? []).filter(t => now() - t < 3600_000);
+    if (recent.length >= 10) throw new HttpError(429, 'You have sent a lot of feedback in the last hour. Please try again later.');
+    const b = await readJson(ctx.req, 25_000_000);
+    const name = requireStr(b.name, 'name', 80);
+    const message = requireStr(b.message, 'message', 5000);
+    const kind = ['bug', 'idea', 'other'].includes(b.kind) ? b.kind as string : 'other';
+    const page = typeof b.page === 'string' ? b.page.slice(0, 500) : '';
+    const ua = typeof b.userAgent === 'string' ? b.userAgent.slice(0, 300) : String(ctx.req.headers['user-agent'] ?? '').slice(0, 300);
+    const shots: Attachment[] = [];
+    if (b.screenshots !== undefined && !Array.isArray(b.screenshots)) throw new HttpError(400, 'Invalid screenshots');
+    for (const [i, s] of (b.screenshots ?? []).slice(0, 4).entries()) {
+      const data = Buffer.from(String(s?.base64 ?? ''), 'base64');
+      if (data.length > 6_000_000) throw new HttpError(413, 'A screenshot is larger than 6 MB');
+      const mime = sniffImage(data);
+      if (!mime) throw new HttpError(400, 'Screenshots must be PNG, JPEG, GIF or WebP images');
+      shots.push({ filename: `screenshot-${i + 1}.${mime.split('/')[1].replace('jpeg', 'jpg')}`, mime, data });
+    }
+    const account = q.userById.get(u) as { email: string; name: string } | undefined;
+    const id = randomUUID(), t = now();
+    db.exec('BEGIN');
+    try {
+      db.prepare('INSERT INTO feedback (id,user_id,name,kind,message,page,user_agent,created_at) VALUES (?,?,?,?,?,?,?,?)').run(id, u, name, kind, message, page, ua, t);
+      for (const s of shots) db.prepare('INSERT INTO feedback_images VALUES (?,?,?,?,?)').run(randomUUID(), id, s.filename, s.mime, s.data);
+      db.exec('COMMIT');
+    } catch (e) { db.exec('ROLLBACK'); throw e; }
+    feedbackHits.set(u, [...recent, t]);
+    const cfg = mailConfig();
+    let emailed = false;
+    if (cfg) {
+      const label = { bug: 'Bug', idea: 'Idea', other: 'Feedback' }[kind]!;
+      const text = [`${label} from ${name}`, '', message, '', '— Details —', `Name entered: ${name}`, `Account: ${account?.name ?? '?'}${account?.email ? ` <${account.email}>` : ''}`, `Type: ${label}`, `Page: ${page || '(unknown)'}`, `Browser: ${ua}`, `Sent: ${new Date(t).toISOString()}`, `Screenshots attached: ${shots.length}`, `Feedback id: ${id}`].join('\n');
+      try { await sendMail(cfg, `[Gridvue ${label}] ${name}: ${message.replace(/\s+/g, ' ').slice(0, 60)}`, text, shots); emailed = true; }
+      catch (e) { console.error('Feedback email failed:', (e as Error).message); }
+    } else console.warn('Feedback saved but email is not configured (set SMTP_HOST, SMTP_USER, SMTP_PASS).');
+    db.prepare('UPDATE feedback SET mail_status = ? WHERE id = ?').run(emailed ? 'sent' : cfg ? 'failed' : 'unconfigured', id);
+    return { ok: true, emailed, configured: !!cfg };
   });
 
   router.add('GET', '/api/health', false, () => ({ ok: true }));

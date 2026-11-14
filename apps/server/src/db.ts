@@ -23,6 +23,9 @@ const MIGRATIONS: string[] = [
   `,
   // design systems: a design file may link one file of type 'designsystem' as its component library
   `ALTER TABLE files ADD COLUMN library_id TEXT REFERENCES files(id) ON DELETE SET NULL;`,
+  // user feedback (also emailed); screenshots are kept with the report
+  `CREATE TABLE feedback (id TEXT PRIMARY KEY, user_id TEXT REFERENCES users(id) ON DELETE SET NULL, name TEXT NOT NULL, kind TEXT NOT NULL, message TEXT NOT NULL, page TEXT, user_agent TEXT, created_at INTEGER NOT NULL, mail_status TEXT NOT NULL DEFAULT 'pending');
+   CREATE TABLE feedback_images (id TEXT PRIMARY KEY, feedback_id TEXT NOT NULL REFERENCES feedback(id) ON DELETE CASCADE, name TEXT NOT NULL, mime TEXT NOT NULL, bytes BLOB NOT NULL);`,
 ];
 
 export type DB = DatabaseSync;
