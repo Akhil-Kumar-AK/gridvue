@@ -1,0 +1,17 @@
+# Render Blueprint: one Node web service that serves the site and the API together.
+# Free plan note: the disk is temporary, so saved files are wiped when the service restarts, sleeps or redeploys.
+services:
+  - type: web
+    name: gridvue
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npx tsx apps/server/src/main.ts
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_PATH
+        value: /tmp/layr.db
+      - key: COOKIE_SECURE
+        value: "1"
