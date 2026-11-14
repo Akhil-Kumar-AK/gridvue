@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import {
-  apply, localMatrix, resizeNode, rotate, setProps, solid, topLevelOnly, translateWorld, unionRects, worldBounds, normAngle, setLayout, setSizing, addAutoLayout, removeAutoLayout,
+import { BLEND_GROUPS, BLEND_LABEL,   apply, localMatrix, resizeNode, rotate, setProps, solid, topLevelOnly, translateWorld, unionRects, worldBounds, normAngle, setLayout, setSizing, addAutoLayout, removeAutoLayout,
   DEFAULT_LAYOUT, enclosingInstance, addVariant, setNodeMode, distribute, togglePathClosed, type LayoutGuide, type AutoLayout, type Effect, type ExportSetting, type Paint, type SceneNode, type TextProps, type BlendMode, type Sizing,
 } from '@layr/core';
 import { applyMask } from '@layr/core';
@@ -26,7 +25,6 @@ function common<T>(nodes: SceneNode[], get: (n: SceneNode) => T, eq: (a: T, b: T
   return { mixed: nodes.some(n => !eq(get(n), first)), value: first };
 }
 const jeq = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
-const BLENDS: BlendMode[] = ['NORMAL', 'MULTIPLY', 'SCREEN', 'OVERLAY', 'DARKEN', 'LIGHTEN'];
 const TYPE_LABEL: Record<string, string> = { VECTOR: 'Vector', COMPONENT_SET: 'Component set', FRAME: 'Frame', GROUP: 'Group', RECT: 'Rectangle', ELLIPSE: 'Ellipse', LINE: 'Line', TEXT: 'Text', COMPONENT: 'Component', INSTANCE: 'Instance' };
 
 function HexInput({ color, ro, onChange }: { color: string; ro: boolean; onChange: (c: string) => void }) {
@@ -143,20 +141,24 @@ export function Inspector({ session, ctrl, actions }: { session: EditorSession; 
       const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
       const items = [{ label: `${p.type === 'SOLID' ? '✓ ' : '   '}Solid`, run: () => upd(solid(p.type === 'LINEAR' ? p.stops[0].color : '#D9D9D9', p.opacity)) },
         { label: `${p.type === 'LINEAR' ? '✓ ' : '   '}Linear gradient`, run: () => upd({ type: 'LINEAR', angle: 90, opacity: p.opacity, visible: true, stops: [{ pos: 0, color: p.type === 'SOLID' ? p.color : '#7C5CFF', opacity: 1 }, { pos: 1, color: '#0D99FF', opacity: 1 }] }) }];
+      items.push({ label: `${p.type === 'PATTERN' ? '✓ ' : '   '}Pattern`, run: () => upd({ type: 'PATTERN', sourceId: null, tile: 'RECT', scale: 1, spacingX: 0, spacingY: 0, align: 'tl', opacity: p.opacity, visible: true }) });
       if (p.type === 'IMAGE') items.push({ label: '✓ Image', run: () => {} });
       set({ menu: { x: Math.min(r.left - 120, window.innerWidth - 240), y: r.bottom + 4, items } });
     };
     return (
       <div className="prow" key={idx}>
         <div className="pill">
-          {(p.type === 'SOLID' || p.type === 'LINEAR') && <Bindable session={session} ids={ids} path={`${prefix}.${idx}.color`} ro={ro}>
+          {/* one stable swatch for every fill type, so the open picker survives switching between Solid / Gradient / Pattern / Image */}
+          <Bindable session={session} ids={ids} path={`${prefix}.${idx}.color`} ro={ro}>
             <span className="cf">
-              <SwatchButton paint={p} disabled={ro} bind={{ ids, path: `${prefix}.${idx}.color` }}
+              <SwatchButton paint={p} disabled={ro} fillTypes={prefix === 'fills'} blend bind={{ ids, path: `${prefix}.${idx}.color` }}
                 onChange={np => upd((np.type === p.type ? { ...p, ...np } : { visible: p.visible, ...np }) as Paint)} />
-              {p.type === 'SOLID' ? <HexInput color={p.color} ro={ro} onChange={c => upd({ ...p, color: c })} /> : <span className="cf-hex gradlabel">Linear</span>}
+              {p.type === 'SOLID' ? <HexInput color={p.color} ro={ro} onChange={c => upd({ ...p, color: c })} />
+                : p.type === 'LINEAR' ? <span className="cf-hex gradlabel">Linear</span>
+                : p.type === 'PATTERN' ? <span className="cf-hex gradlabel">{p.sourceId && session.store.doc.nodes[p.sourceId] ? `Pattern: ${session.store.doc.nodes[p.sourceId].name}` : 'Pattern'}</span>
+                : <Select className="plain" value={p.scaleMode} disabled={ro} onChange={e => upd({ ...p, scaleMode: e.target.value as 'FILL' })}><option value="FILL">Fill</option><option value="FIT">Fit</option><option value="STRETCH">Stretch</option><option value="TILE">Tile</option></Select>}
             </span>
-          </Bindable>}
-          {p.type === 'IMAGE' && <><span className="imgsw" /><Select className="plain" value={p.scaleMode} disabled={ro} onChange={e => upd({ ...p, scaleMode: e.target.value as 'FILL' })}><option value="FILL">Fill</option><option value="FIT">Fit</option><option value="STRETCH">Stretch</option></Select></>}
+          </Bindable>
           <span className="pdiv" />
           <NumberField value={Math.round(p.opacity * 100)} suffix="%" min={0} max={100} disabled={ro} onCommit={v => upd({ ...p, opacity: v / 100 })} />
           <button className="icon-btn" title="Paint type" aria-label="Paint type" disabled={ro} onClick={typeMenu}><Icon n="chevD" size={11} /></button>
@@ -363,10 +365,11 @@ export function Inspector({ session, ctrl, actions }: { session: EditorSession; 
       <Section title="Appearance" actions={<>
         <VarMenuButton session={session} ids={ids} path="visible" ro={ro} />
         <IBtn icon={cm(n => n.visible).mixed || nodes[0].visible ? 'eye' : 'eyeOff'} title="Toggle visibility" disabled={ro || !!boundVisible} onClick={act('arrange.hide').run} />
-        <IBtn icon="drop" title={`Blend mode: ${cm(n => n.blendMode).mixed ? 'mixed' : nodes[0].blendMode.toLowerCase()}`} disabled={ro} onClick={e => {
+        <IBtn icon="drop" title={`Blend mode: ${cm(n => n.blendMode).mixed ? 'mixed' : BLEND_LABEL[nodes[0].blendMode].toLowerCase()}`} disabled={ro} onClick={e => {
           const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
           const cur = cm(n => n.blendMode);
-          set({ menu: { x: Math.min(r.left - 120, window.innerWidth - 240), y: r.bottom + 4, items: BLENDS.map(b => ({ label: `${!cur.mixed && nodes[0].blendMode === b ? '✓ ' : '   '}${b[0] + b.slice(1).toLowerCase()}`, run: () => commit({ blendMode: b }, 'Blend mode') })) } });
+          const items = BLEND_GROUPS.flatMap((g, gi) => [...(gi ? [{ label: '', separator: true }] : []), ...g.map(b => ({ label: BLEND_LABEL[b], checked: !cur.mixed && nodes[0].blendMode === b, run: () => commit({ blendMode: b }, 'Blend mode') }))]);
+          set({ menu: { x: Math.min(r.left - 120, window.innerWidth - 240), y: r.bottom + 4, items } });
         }} />
       </>}>
         <div className="approw one">

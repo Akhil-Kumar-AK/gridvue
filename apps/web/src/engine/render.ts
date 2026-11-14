@@ -1,7 +1,8 @@
-import { apply, boundsOfPoints, flatten, localMatrix, mul, pathBounds, rectsIntersect, type DocumentData, type Mat, type Paint, type Rect, type SceneNode, type VectorPath } from '@layr/core';
+import { apply, boundsOfPoints, defaultNode, flatten, localMatrix, mul, pathBounds, rectsIntersect, type DocumentData, type Mat, type Paint, type Rect, type SceneNode, type VectorPath } from '@layr/core';
 import { applyTextStyle, caseText, fontString, layoutText } from './text';
 import { outlines, widthPolygon, wiggled } from './strokeFx';
 import type { ImageCache } from './images';
+import { adjustedImage, isAdjusted } from './adjust';
 
 export interface DrawEnv {
   images: ImageCache;
@@ -15,9 +16,13 @@ export interface DrawEnv {
   /** set while compositing boolean operations: forces the blend mode and skips strokes */
   composite?: GlobalCompositeOperation;
   noStroke?: boolean;
+  /** set by drawNode so fills can render other layers (pattern tiles) */
+  doc?: DocumentData;
+  /** pattern-in-pattern recursion guard */
+  depth?: number;
 }
 
-const BLEND: Record<string, GlobalCompositeOperation> = { NORMAL: 'source-over', MULTIPLY: 'multiply', SCREEN: 'screen', OVERLAY: 'overlay', DARKEN: 'darken', LIGHTEN: 'lighten' };
+const BLEND: Record<string, GlobalCompositeOperation> = { NORMAL: 'source-over', DARKEN: 'darken', MULTIPLY: 'multiply', PLUS_DARKER: 'multiply' /* no canvas equivalent: approximated */, COLOR_BURN: 'color-burn', LIGHTEN: 'lighten', SCREEN: 'screen', PLUS_LIGHTER: 'lighter', COLOR_DODGE: 'color-dodge', OVERLAY: 'overlay', SOFT_LIGHT: 'soft-light', HARD_LIGHT: 'hard-light', DIFFERENCE: 'difference', EXCLUSION: 'exclusion', HUE: 'hue', SATURATION: 'saturation', COLOR: 'color', LUMINOSITY: 'luminosity' };
 
 export function rgba(hex: string, a = 1): string {
   const h = hex.replace('#', '');
@@ -64,16 +69,58 @@ function paintStyle(c: CanvasRenderingContext2D, p: Paint, n: SceneNode): string
 }
 
 function drawImagePaint(c: CanvasRenderingContext2D, n: SceneNode, p: Extract<Paint, { type: 'IMAGE' }>, env: DrawEnv) {
-  const img = env.images.get(p.assetId);
-  if (!img) { c.fillStyle = 'rgba(128,128,128,0.25)'; c.fill(); return; }
+  const raw = env.images.get(p.assetId);
+  if (!raw) { c.fillStyle = 'rgba(128,128,128,0.25)'; c.fill(); return; }
+  const adj = isAdjusted(p.adjust) ? adjustedImage(raw, p.assetId, p.adjust!) : null;
+  const img: CanvasImageSource = adj ?? raw;
+  const iw0 = raw.naturalWidth, ih0 = raw.naturalHeight; // layout uses the original size even when the adjusted copy is smaller
+  const rot = p.rotation ?? 0, swap = rot === 90 || rot === 270;
   c.save(); c.clip();
-  const iw = img.naturalWidth, ih = img.naturalHeight;
-  if (p.scaleMode === 'STRETCH') c.drawImage(img, 0, 0, n.width, n.height);
-  else {
-    const s = p.scaleMode === 'FILL' ? Math.max(n.width / iw, n.height / ih) : Math.min(n.width / iw, n.height / ih);
-    const w = iw * s, h = ih * s;
-    c.drawImage(img, (n.width - w) / 2, (n.height - h) / 2, w, h);
+  if (p.scaleMode === 'TILE') {
+    const pat = c.createPattern(img, 'repeat');
+    if (pat) { const k = adj ? iw0 / adj.width : 1; pat.setTransform(new DOMMatrix().scale(k)); c.fillStyle = pat; c.fillRect(0, 0, n.width, n.height); }
+  } else {
+    const iw = swap ? ih0 : iw0, ih = swap ? iw0 : ih0; // size as displayed after the quarter turn
+    c.translate(n.width / 2, n.height / 2); c.rotate((rot * Math.PI) / 180);
+    if (p.scaleMode === 'STRETCH') { const dw = swap ? n.height : n.width, dh = swap ? n.width : n.height; c.drawImage(img, -dw / 2, -dh / 2, dw, dh); }
+    else {
+      const s = p.scaleMode === 'FILL' ? Math.max(n.width / iw, n.height / ih) : Math.min(n.width / iw, n.height / ih);
+      c.drawImage(img, (-iw0 * s) / 2, (-ih0 * s) / 2, iw0 * s, ih0 * s);
+    }
   }
+  c.restore();
+}
+
+/** Repeat another layer as a tile across the fill. Spacing is a percentage of the scaled tile; alignment places the tile inside its cell. */
+function drawPatternPaint(c: CanvasRenderingContext2D, n: SceneNode, p: Extract<Paint, { type: 'PATTERN' }>, env: DrawEnv) {
+  const doc = env.doc, src = doc && p.sourceId ? doc.nodes[p.sourceId] : undefined;
+  if (!doc || !src || src.id === n.id || (env.depth ?? 0) >= 2 || src.width <= 0 || src.height <= 0) { c.fillStyle = 'rgba(128,128,128,0.18)'; c.fill(); return; }
+  const tw = src.width * p.scale, th = src.height * p.scale;
+  const cw = Math.max(1, tw + (tw * p.spacingX) / 100), ch = Math.max(1, th + (th * p.spacingY) / 100);
+  const q = Math.min(1, 2048 / Math.max(cw * env.scale, ch * env.scale * (p.tile === 'OFFSET' ? 2 : 1)));
+  const px = env.scale * q; // tile pixels per world unit
+  const rows = p.tile === 'OFFSET' ? 2 : 1;
+  const cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(cw * px)); cv.height = Math.max(1, Math.round(ch * rows * px));
+  const t = cv.getContext('2d'); if (!t) return;
+  const ax = p.align.endsWith('l') ? 0 : p.align.endsWith('r') ? 1 : 0.5, ay = p.align.startsWith('t') ? 0 : p.align.startsWith('b') ? 1 : 0.5;
+  const place = (ox: number, oy: number) => {
+    t.save(); t.scale(px, px); t.translate(ox + (cw - tw) * ax, oy + (ch - th) * ay); t.scale(p.scale, p.scale); t.translate(-src.x, -src.y); // drawNode places a layer at its own x/y, so move it back to the tile origin
+    drawNode(t, doc, src.id, { images: env.images, scale: px * p.scale, doc, depth: (env.depth ?? 0) + 1 }, [1, 0, 0, 1, 0, 0]);
+    t.restore();
+  };
+  place(0, 0);
+  if (rows === 2) { place(cw / 2, ch); place(-cw / 2, ch); } // brick offset, wrapped so the seam tiles
+  const pat = c.createPattern(cv, 'repeat'); if (!pat) return;
+  pat.setTransform(new DOMMatrix().scale(1 / px));
+  c.fillStyle = pat; c.fill(n.subpaths?.length ? 'evenodd' : 'nonzero');
+}
+
+/** Paint a fill (any type) into a w×h rectangle: used for live previews in the picker. */
+export function drawPaintPreview(c: CanvasRenderingContext2D, doc: DocumentData, paint: Paint, w: number, h: number, env: DrawEnv) {
+  const n = { ...defaultNode('RECT'), width: w, height: h } as SceneNode;
+  const e = { ...env, doc }; c.save(); c.beginPath(); c.rect(0, 0, w, h);
+  if (paint.type === 'IMAGE') drawImagePaint(c, n, paint, e); else if (paint.type === 'PATTERN') drawPatternPaint(c, n, paint, e);
+  else { const st = paintStyle(c, paint, n); if (st) { c.fillStyle = st; c.fill(); } }
   c.restore();
 }
 
@@ -81,12 +128,14 @@ function fillPaints(c: CanvasRenderingContext2D, n: SceneNode, paints: Paint[], 
   const shadows = shadow ? n.effects.filter((e): e is Extract<typeof e, { type: 'DROP_SHADOW' }> => e.type === 'DROP_SHADOW' && e.visible) : [];
   const vis = paints.filter(p => p.visible);
   const draw = (p: Paint) => {
-    const baseAlpha = c.globalAlpha;
+    const baseAlpha = c.globalAlpha, baseOp = c.globalCompositeOperation;
     c.globalAlpha = baseAlpha * p.opacity;
+    if (p.blendMode && p.blendMode !== 'NORMAL' && !env.composite) c.globalCompositeOperation = BLEND[p.blendMode] ?? baseOp; // per-fill blend
     shapePath(c, n);
     if (p.type === 'IMAGE') drawImagePaint(c, n, p, env);
+    else if (p.type === 'PATTERN') drawPatternPaint(c, n, p, env);
     else { const st = paintStyle(c, p, n); if (st) { c.fillStyle = st; c.fill(n.subpaths?.length ? 'evenodd' : 'nonzero'); } }
-    c.globalAlpha = baseAlpha;
+    c.globalAlpha = baseAlpha; c.globalCompositeOperation = baseOp;
   };
   if (shadows.length && vis.length) {
     // shadows are cast by the lowest paint's silhouette
@@ -160,18 +209,19 @@ function strokeFx(c: CanvasRenderingContext2D, n: SceneNode, style: string | Can
 }
 
 function strokePaints(c: CanvasRenderingContext2D, n: SceneNode, env: DrawEnv) {
-  const strokes = n.strokes.filter(p => p.visible && p.type !== 'IMAGE');
+  const strokes = n.strokes.filter(p => p.visible && p.type !== 'IMAGE' && p.type !== 'PATTERN');
   if (!strokes.length || n.strokeWeight <= 0) return;
   const align = n.type === 'LINE' || n.type === 'VECTOR' ? 'CENTER' : n.strokeAlign; // inside/outside need a closed area; vectors stroke on centre
   for (const p of strokes) {
     const st = paintStyle(c, p, n); if (!st) continue;
     if ((n.strokeKind && n.strokeKind !== 'BASIC') || (n.strokeProfile && n.strokeProfile !== 'UNIFORM')) {
-      c.save(); c.globalAlpha *= p.opacity; strokeFx(c, n, st); c.restore();
+      c.save(); c.globalAlpha *= p.opacity; if (p.blendMode && p.blendMode !== 'NORMAL' && !env.composite) c.globalCompositeOperation = BLEND[p.blendMode] ?? c.globalCompositeOperation; strokeFx(c, n, st); c.restore();
       if (n.strokeStart || n.strokeEnd) drawEndPoints(c, n, st);
       continue;
     }
     c.save();
     c.globalAlpha *= p.opacity; c.strokeStyle = st;
+    if (p.blendMode && p.blendMode !== 'NORMAL' && !env.composite) c.globalCompositeOperation = BLEND[p.blendMode] ?? c.globalCompositeOperation; // per-stroke blend
     c.lineJoin = ({ MITER: 'miter', ROUND: 'round', BEVEL: 'bevel' } as const)[n.strokeJoin ?? 'MITER']; c.lineCap = ({ NONE: 'butt', ROUND: 'round', SQUARE: 'square' } as const)[n.strokeCap ?? 'NONE'];
     c.miterLimit = n.strokeMiterAngle ? 1 / Math.sin((n.strokeMiterAngle * Math.PI) / 360) : 10;
     c.setLineDash(n.dashes?.length ? n.dashes : []);
@@ -186,7 +236,6 @@ function strokePaints(c: CanvasRenderingContext2D, n: SceneNode, env: DrawEnv) {
     c.restore();
     if (n.strokeStart || n.strokeEnd) drawEndPoints(c, n, st);
   }
-  void env;
 }
 /** append the shape to the current path without beginPath (for even-odd outside clipping) */
 function shapeAppend(c: CanvasRenderingContext2D, n: SceneNode) {
@@ -228,7 +277,7 @@ function drawTextOnPath(c: CanvasRenderingContext2D, n: SceneNode, fill: Paint, 
 function drawText(c: CanvasRenderingContext2D, n: SceneNode, env: DrawEnv) {
   const t = n.text!;
   if (env.hideTextOf === n.id) return;
-  const fill = n.fills.find(f => f.visible && f.type !== 'IMAGE');
+  const fill = n.fills.find(f => f.visible && f.type !== 'IMAGE' && f.type !== 'PATTERN');
   if (!fill) return;
   if (n.textPath) { drawTextOnPath(c, n, fill, env); return; }
   const layout = layoutText(t, n.width, c, n.height);
@@ -299,6 +348,7 @@ function drawBoolean(c: CanvasRenderingContext2D, doc: DocumentData, n: SceneNod
 export function drawNode(c: CanvasRenderingContext2D, doc: DocumentData, id: string, env: DrawEnv, parentM: Mat) {
   const n = doc.nodes[id];
   if (!n.visible) return;
+  env.doc = doc;
   const m = mul(parentM, localMatrix(n));
   let culled = false;
   if (env.view) {

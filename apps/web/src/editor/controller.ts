@@ -227,6 +227,12 @@ export class CanvasController {
       return;
     }
     if (e.button !== 0) return;
+    if (ui.pickSource) { // choosing a layer for a pattern fill: the click picks, it never selects or drags
+      const t = this.titleAt(p) ?? this.pickTarget(hitChain(this.doc, ui.pageId, world, 4 / ui.camera.zoom), e.metaKey || e.ctrlKey);
+      const cb = ui.pickSource; ui.set({ pickSource: null });
+      if (t) cb(t); else ui.toast('No layer there. The pattern source was not changed.');
+      return;
+    }
     const canEdit = this.session.canEdit;
     if (ui.mode === 'prototype') { this.protoDown(p, world, e); return; }
     if (ui.tool === 'pen') { if (canEdit) this.penDown(world); else ui.toast('View-only: you cannot edit this file', 'error'); return; }

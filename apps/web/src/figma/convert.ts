@@ -1,4 +1,4 @@
-import { defaultNode, solid, type Effect, type Paint, type PathPoint, type SceneNode, type VectorPath } from '@layr/core';
+import { defaultNode, solid, type BlendMode, type Effect, type Paint, type PathPoint, type SceneNode, type VectorPath } from '@layr/core';
 import type { FigmaMessage } from './decode';
 
 export interface Converted { trees: SceneNode[][]; notes: string[]; count: number; /** one entry per Figma page when the data came from a .fig file */ pages: { name: string; trees: SceneNode[][] }[] }
@@ -121,7 +121,8 @@ export function convertFigma(msg: FigmaMessage, opts: ConvertOptions = {}): Conv
     if (nc.strokeCap === 'ROUND' || nc.strokeCap === 'SQUARE') node.strokeCap = nc.strokeCap;
     if (nc.strokeJoin === 'ROUND' || nc.strokeJoin === 'BEVEL') node.strokeJoin = nc.strokeJoin;
     if (Array.isArray(nc.strokeDashes) && nc.strokeDashes.length) node.dashes = nc.strokeDashes.map(Number);
-    if (['MULTIPLY', 'SCREEN', 'OVERLAY', 'DARKEN', 'LIGHTEN'].includes(nc.blendMode)) node.blendMode = nc.blendMode;
+    const figBlend: Record<string, BlendMode> = { DARKEN: 'DARKEN', MULTIPLY: 'MULTIPLY', LINEAR_BURN: 'PLUS_DARKER', COLOR_BURN: 'COLOR_BURN', LIGHTEN: 'LIGHTEN', SCREEN: 'SCREEN', LINEAR_DODGE: 'PLUS_LIGHTER', COLOR_DODGE: 'COLOR_DODGE', OVERLAY: 'OVERLAY', SOFT_LIGHT: 'SOFT_LIGHT', HARD_LIGHT: 'HARD_LIGHT', DIFFERENCE: 'DIFFERENCE', EXCLUSION: 'EXCLUSION', HUE: 'HUE', SATURATION: 'SATURATION', COLOR: 'COLOR', LUMINOSITY: 'LUMINOSITY' };
+    if (figBlend[nc.blendMode]) node.blendMode = figBlend[nc.blendMode];
     if (type === 'RECT' || type === 'FRAME') {
       const tl = nc.rectangleTopLeftCornerRadius, tr = nc.rectangleTopRightCornerRadius, br = nc.rectangleBottomRightCornerRadius, bl = nc.rectangleBottomLeftCornerRadius, all = num(nc.cornerRadius);
       if ([tl, tr, br, bl].some(v => typeof v === 'number')) { const r: [number, number, number, number] = [num(tl, all), num(tr, all), num(br, all), num(bl, all)]; if (r.every(v => v === r[0])) node.cornerRadius = r[0]; else node.cornerRadii = r; } else node.cornerRadius = all;

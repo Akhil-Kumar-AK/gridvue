@@ -19,11 +19,12 @@ export function ContextMenu() {
   const set = useEditor(s => s.set);
   useEffect(() => { if (!menu) return; const close = () => set({ menu: null }); window.addEventListener('pointerdown', close); window.addEventListener('blur', close); return () => { window.removeEventListener('pointerdown', close); window.removeEventListener('blur', close); }; }, [menu, set]);
   if (!menu) return null;
-  const x = Math.min(menu.x, window.innerWidth - 230), y = Math.min(menu.y, window.innerHeight - menu.items.length * 28 - 10);
+  const x = Math.min(menu.x, window.innerWidth - 230), y = Math.max(8, Math.min(menu.y, window.innerHeight - menu.items.length * 28 - 10));
+  const choice = menu.items.some(i => i.checked !== undefined); // a pick-one menu: reserve a check slot and highlight the current row
   return (
-    <div className="menu" style={{ left: x, top: y }} onPointerDown={e => e.stopPropagation()} role="menu">
+    <div className={'menu' + (choice ? ' choice' : '')} style={{ left: x, top: y, maxHeight: window.innerHeight - y - 8 }} onPointerDown={e => e.stopPropagation()} role="menu">
       {menu.items.map((it, i) => it.separator ? <div key={i} className="menu-sep" /> : (
-        <button key={i} role="menuitem" disabled={it.disabled} onClick={() => { set({ menu: null }); it.run?.(); }}>{it.icon && <Icon n={it.icon as IconName} size={16} />}<span>{it.label}</span><kbd>{it.shortcut}</kbd></button>
+        <button key={i} role="menuitem" aria-checked={choice ? !!it.checked : undefined} className={it.checked ? 'checked' : ''} disabled={it.disabled} onClick={() => { set({ menu: null }); it.run?.(); }}>{choice && <span className="mk-check">{it.checked && <Icon n="check" size={16} />}</span>}{it.icon && <Icon n={it.icon as IconName} size={16} />}<span>{it.label}</span><kbd>{it.shortcut}</kbd></button>
       ))}
     </div>
   );

@@ -1,11 +1,13 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { bindVariable, createCollection, createVariable, resolveVariable, modeFor, solid, type Paint, type LinearPaint, type SolidPaint } from '@layr/core';
+import { BLEND_GROUPS, BLEND_LABEL, bindVariable, createCollection, createVariable, resolveVariable, modeFor, solid, type Paint, type LinearPaint, type SolidPaint, type ImagePaint, type PatternPaint } from '@layr/core';
 import { Icon, type IconName } from '../icons';
 import { activeSession } from './session';
 import { useEditor } from './state';
 import { Select } from '../ui/Select';
+import { useDraggable } from '../ui/useDraggable';
 import { askText, askConfirm } from '../ui/dialogs';
+import { ImagePanel, PatternPanel } from './FillPanels';
 
 // ---------- colour maths ----------
 export type RGB = { r: number; g: number; b: number };
@@ -32,7 +34,7 @@ function hslToRgb(h: number, s: number, l: number): RGB { const v = l + s * Math
 const PRESET = ['#FFFFFF', '#F5F5F5', '#E6E6E6', '#B3B3B3', '#808080', '#4D4D4D', '#1A1A1A', '#000000', '#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#00C7BE', '#32ADE6', '#007AFF', '#5856D6', '#AF52DE', '#FF2D55', '#A2845E', '#8E8E93', '#FFD6D6', '#D6F5DD', '#D6E8FF', '#EAD6FF'];
 const checker = 'repeating-conic-gradient(#555 0 25%, #888 0 50%) 0 0/10px 10px';
 
-export type PickerPaint = Pick<SolidPaint, 'type' | 'color' | 'opacity'> | Pick<LinearPaint, 'type' | 'stops' | 'angle' | 'opacity'>;
+export type PickerPaint = Pick<SolidPaint, 'type' | 'color' | 'opacity' | 'blendMode'> | Pick<LinearPaint, 'type' | 'stops' | 'angle' | 'opacity' | 'blendMode'> | Omit<ImagePaint, 'visible'> | Omit<PatternPaint, 'visible'>;
 
 interface Props {
   anchor: DOMRect;
@@ -43,27 +45,34 @@ interface Props {
   /** when set, choosing a library variable binds it to this property path on the given nodes */
   bind?: { ids: string[]; path: string };
   showOpacity?: boolean;
+  /** offer Pattern and Image fills (fills only, not strokes or text) */
+  fillTypes?: boolean;
+  /** offer the droplet (blend mode) for this paint: fills and strokes */
+  blend?: boolean;
 }
 
-export function ColorPopover({ anchor, paint, onChange, onClose, gradients = true, bind, showOpacity = true }: Props) {
+export function ColorPopover({ anchor, paint, onChange, onClose, gradients = true, bind, showOpacity = true, fillTypes = false, blend = false }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<'custom' | 'libraries'>('custom');
+  const paintMode = paint.type === 'SOLID' ? 'solid' : paint.type === 'LINEAR' ? 'gradient' : paint.type === 'PATTERN' ? 'pattern' : 'image';
+  const [forced, setForced] = useState<'pattern' | 'image' | null>(null);
+  const mode = forced ?? paintMode;
   const [stop, setStop] = useState(0);
   const [fmt, setFmt] = useState<'HEX' | 'RGB' | 'HSL'>('HEX');
   const [docMode, setDocMode] = useState<'page' | 'preset'>('page');
   const [q, setQ] = useState(''); const [libFilter, setLibFilter] = useState('');
   const toast = useEditor(s => s.toast);
-  const [pos, setPos] = useState({ left: Math.max(8, anchor.left - 290), top: Math.max(8, anchor.top - 20) });
-  useLayoutEffect(() => { const h = ref.current?.offsetHeight ?? 0; setPos(p => ({ left: p.left, top: Math.max(8, Math.min(p.top, window.innerHeight - h - 8)) })); }, [tab, paint.type]);
+  const { pos, setPos, onPointerDown: dragStart } = useDraggable({ left: Math.max(8, anchor.left - 290), top: Math.max(8, anchor.top - 20) }, ref); // drag by the header, like the stroke and type panels
+  useLayoutEffect(() => { const h = ref.current?.offsetHeight ?? 0; setPos(p => ({ left: p.left, top: Math.max(8, Math.min(p.top, window.innerHeight - h - 8)) })); }, [tab, paint.type, mode]);
   useEffect(() => {
-    const down = (e: PointerEvent) => { const t = e.target as HTMLElement; if (!ref.current?.contains(t) && !t.closest?.('.sel-menu, .dlg-back')) onClose(); };
+    const down = (e: PointerEvent) => { const t = e.target as HTMLElement; if (!ref.current?.contains(t) && !t.closest?.('.sel-menu, .dlg-back, .menu') && !useEditor.getState().pickSource) onClose(); };
     const key = (e: KeyboardEvent) => { if (e.key === 'Escape' && !document.querySelector('.sel-menu, .dlg-back')) { e.stopPropagation(); onClose(); } };
     window.addEventListener('pointerdown', down, true); window.addEventListener('keydown', key, true);
     return () => { window.removeEventListener('pointerdown', down, true); window.removeEventListener('keydown', key, true); };
   }, [onClose]);
 
   const isGrad = paint.type === 'LINEAR';
-  const cur = isGrad ? (paint as LinearPaint).stops[Math.min(stop, 1)] : (paint as SolidPaint);
+  const cur = isGrad ? (paint as LinearPaint).stops[Math.min(stop, 1)] : paint.type === 'SOLID' ? (paint as SolidPaint) : { color: '#D9D9D9', opacity: paint.opacity };
   const curColor = cur.color;
   const [hsv, setHsv] = useState(() => rgbToHsv(hexToRgb(curColor)));
   const last = useRef(curColor);
@@ -107,9 +116,15 @@ export function ColorPopover({ anchor, paint, onChange, onClose, gradients = tru
   const [text, setText] = useState(fmtText);
   useEffect(() => setText(fmtText), [fmtText, fmt]);
 
-  const typeBtn = (icon: IconName, title: string, on: boolean, enabled: boolean, run?: () => void) => <button key={title} className={'ptype-btn' + (on ? ' on' : '')} disabled={!enabled} title={enabled ? title : `${title} — not implemented yet`} aria-label={title} aria-pressed={on} onClick={run}><Icon n={icon} size={20} /></button>;
-  const toSolid = () => { if (isGrad) onChange({ type: 'SOLID', color: (paint as LinearPaint).stops[0].color, opacity: paint.opacity }); };
-  const toLinear = () => { if (!isGrad) onChange({ type: 'LINEAR', angle: 90, opacity: paint.opacity, stops: [{ pos: 0, color: (paint as SolidPaint).color, opacity: 1 }, { pos: 1, color: '#FFFFFF', opacity: 1 }] }); };
+  const typeBtn = (icon: IconName, title: string, on: boolean, enabled: boolean, run?: (e: React.MouseEvent<HTMLButtonElement>) => void, why = 'not implemented yet') => <button key={title} className={'ptype-btn' + (on ? ' on' : '')} disabled={!enabled} title={enabled ? title : `${title}: ${why}`} aria-label={title} aria-pressed={on} onClick={run}><Icon n={icon} size={20} /></button>;
+  const blendNow = (paint as { blendMode?: string }).blendMode ?? 'NORMAL';
+  const openBlend = (e: React.MouseEvent<HTMLElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const items = BLEND_GROUPS.flatMap((g, gi) => [...(gi ? [{ label: '', separator: true }] : []), ...g.map(b => ({ label: BLEND_LABEL[b], checked: blendNow === b, run: () => onChange({ ...paint, blendMode: b } as PickerPaint) }))]);
+    useEditor.getState().set({ menu: { x: Math.min(r.right - 220, window.innerWidth - 240), y: r.bottom + 6, items } });
+  };
+  const toSolid = () => { setForced(null); if (paint.type !== 'SOLID') onChange({ type: 'SOLID', color: isGrad ? (paint as LinearPaint).stops[0].color : '#D9D9D9', opacity: paint.opacity }); };
+  const toLinear = () => { setForced(null); if (!isGrad) onChange({ type: 'LINEAR', angle: 90, opacity: paint.opacity, stops: [{ pos: 0, color: paint.type === 'SOLID' ? (paint as SolidPaint).color : '#7C5CFF', opacity: 1 }, { pos: 1, color: '#FFFFFF', opacity: 1 }] }); };
 
   // libraries
   const cols = doc ? Object.values(doc.collections) : [];
@@ -134,7 +149,7 @@ export function ColorPopover({ anchor, paint, onChange, onClose, gradients = tru
 
   return createPortal(
     <div ref={ref} className="cpop" style={{ left: pos.left, top: pos.top }} role="dialog" aria-label="Color picker" onPointerDown={e => e.stopPropagation()}>
-      <div className="cp-head">
+      <div className="cp-head" onPointerDown={dragStart} title="Drag to move">
         <button className={'cp-tab' + (tab === 'custom' ? ' on' : '')} onClick={() => setTab('custom')}>Custom</button>
         <button className={'cp-tab' + (tab === 'libraries' ? ' on' : '')} onClick={() => setTab('libraries')}>Libraries</button>
         <span className="spacer" />
@@ -143,15 +158,16 @@ export function ColorPopover({ anchor, paint, onChange, onClose, gradients = tru
       </div>
       {tab === 'custom' ? <>
         <div className="cp-types">
-          {typeBtn('rect', 'Solid', !isGrad, true, toSolid)}
-          {typeBtn('addLayout', 'Linear gradient', isGrad, gradients, toLinear)}
-          {typeBtn('grid', 'Radial gradient', false, false)}
-          {typeBtn('image', 'Image', false, false)}
-          {typeBtn('play', 'Video', false, false)}
-          {typeBtn('draw', 'Pattern', false, false)}
+          {typeBtn('fillSolid', 'Solid', mode === 'solid', true, toSolid)}
+          {typeBtn('fillGradient', 'Linear gradient', mode === 'gradient', gradients, toLinear)}
+          {typeBtn('fillPattern', 'Pattern', mode === 'pattern', fillTypes, () => setForced('pattern'), 'only available for layer fills')}
+          {typeBtn('fillImage', 'Image', mode === 'image', fillTypes, () => setForced('image'), 'only available for layer fills')}
           <span className="spacer" />
-          {typeBtn('drop', 'Noise', false, false)}
+          {typeBtn('drop', blendNow === 'NORMAL' ? 'Blend mode' : `Blend mode: ${BLEND_LABEL[blendNow as keyof typeof BLEND_LABEL]}`, blendNow !== 'NORMAL', blend || fillTypes, openBlend, 'only available for layer fills and strokes')}
         </div>
+        {mode === 'pattern' && <PatternPanel paint={paint.type === 'PATTERN' ? (paint as unknown as PatternPaint) : null} opacity={paint.opacity} onChange={onChange} />}
+        {mode === 'image' && <ImagePanel paint={paint.type === 'IMAGE' ? (paint as unknown as ImagePaint) : null} opacity={paint.opacity} onChange={onChange} />}
+        {(mode === 'solid' || mode === 'gradient') && <>
         {isGrad && (
           <div className="cp-grad">
             <div className="gbar" style={{ background: gradCss }}>
@@ -184,9 +200,10 @@ export function ColorPopover({ anchor, paint, onChange, onClose, gradients = tru
               <button key={i} className="sw" title={`${c.color}${c.opacity < 1 ? ` · ${Math.round(c.opacity * 100)}%` : ''}`} aria-label={`Use ${c.color}`} onClick={() => { emitColor(c.color, c.opacity); setHsv(rgbToHsv(hexToRgb(c.color))); }}
                 style={{ background: c.opacity < 1 ? `linear-gradient(90deg, ${c.color} 50%, transparent 50%), ${checker}` : c.color }} />
             ))}
-            {docMode === 'page' && !pageColors.length && <span className="muted small">No colours on this page yet.</span>}
+            {docMode === 'page' && !pageColors.length && <span className="muted small sw-empty">No colours on this page yet.</span>}
           </div>
         </div>
+        </>}
       </> : <>
         <div className="cp-search"><Icon n="search" size={18} /><input placeholder="Search" aria-label="Search library colours" value={q} onChange={e => setQ(e.target.value)} /></div>
         <div className="cp-libbar">
@@ -211,12 +228,15 @@ export function ColorPopover({ anchor, paint, onChange, onClose, gradients = tru
 }
 
 /** Swatch button that opens the popover. */
-export function SwatchButton({ paint, onChange, gradients, bind, showOpacity, disabled, className }: { paint: PickerPaint; onChange: (p: PickerPaint) => void; gradients?: boolean; bind?: Props['bind']; showOpacity?: boolean; disabled?: boolean; className?: string }) {
+export function SwatchButton({ paint, onChange, gradients, bind, showOpacity, disabled, className, fillTypes, blend }: { paint: PickerPaint; onChange: (p: PickerPaint) => void; gradients?: boolean; bind?: Props['bind']; showOpacity?: boolean; disabled?: boolean; className?: string; fillTypes?: boolean; blend?: boolean }) {
   const [open, setOpen] = useState<DOMRect | null>(null);
-  const bg = paint.type === 'SOLID' ? paint.color : `linear-gradient(${(paint as LinearPaint).angle}deg, ${(paint as LinearPaint).stops.map(s => s.color).join(', ')})`;
+  const bg = paint.type === 'SOLID' ? paint.color
+    : paint.type === 'LINEAR' ? `linear-gradient(${paint.angle}deg, ${paint.stops.map(s => s.color).join(', ')})`
+    : paint.type === 'IMAGE' ? `center / cover url(/api/assets/${paint.assetId}), ${checker}`
+    : `radial-gradient(circle, #8b8ff7 1.6px, transparent 1.8px) 0 0 / 6px 6px, #3a3a3d`;
   return <>
     <button type="button" className={'swatchbtn ' + (className ?? '')} disabled={disabled} aria-label="Open color picker" title="Pick a colour" style={{ background: bg }} onClick={e => setOpen(e.currentTarget.getBoundingClientRect())} />
-    {open && <ColorPopover anchor={open} paint={paint} onChange={onChange} onClose={() => setOpen(null)} gradients={gradients} bind={bind} showOpacity={showOpacity} />}
+    {open && <ColorPopover anchor={open} paint={paint} onChange={onChange} onClose={() => setOpen(null)} gradients={gradients} bind={bind} showOpacity={showOpacity} fillTypes={fillTypes} blend={blend} />}
   </>;
 }
 export { solid };

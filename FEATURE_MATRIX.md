@@ -102,3 +102,19 @@ Sources consulted: [Release notes](https://www.figma.com/release-notes/) · [Con
 | Export PNG/JPG/WEBP (1–4x, per-layer saved settings), native `.layr` export/import | | | `milestone1.spec` (PNG header + size, native round trip) | working |
 | SVG/PDF export, `.fig` import | — | | — | missing |
 | Schema versioning + validation on every write | | | `core.test` | working |
+
+## Fill types (colour picker)
+| Feature | Status | Notes |
+|---|---|---|
+| Solid, linear gradient | Built | — |
+| **Pattern fill**: repeat any layer as a tile (grid or offset rows), scale, spacing X/Y, 3×3 alignment, live preview, pick the source by clicking a layer | Built | Renders on the canvas and in PNG/JPG/WebP exports; not exported to `.fig` / `.xd` (becomes a grey solid). Deleting the source layer leaves a grey placeholder. |
+| **Image fill**: upload, fit mode (fill / fit / stretch / tile), 90° rotation, non-destructive exposure, contrast, saturation, temperature, tint, highlights and shadows | Built | Adjustments are simple per-pixel maths on a copy capped at 1600 px, not a colour-managed pipeline. No crop mode. |
+| "Make an image" (AI generation) | Not available | Button is shown disabled; no AI provider is configured. |
+| Radial / angular / diamond gradients, video fills, noise | Not built | Icons removed (video) or disabled (noise). |
+
+## Blend modes
+| Feature | Status | Notes |
+|---|---|---|
+| 18 layer blend modes in grouped menu (Normal; Darken, Multiply, Plus darker, Color burn; Lighten, Screen, Plus lighter, Color dodge; Overlay, Soft light, Hard light; Difference, Exclusion; Hue, Saturation, Color, Luminosity) with the current mode highlighted | Built | Opened from the droplet in Appearance. Rendered with canvas compositing, so it also applies in exports. |
+| **Plus darker** | Approximate | Canvas has no equivalent; it renders like Multiply. Exported to `.fig` as Linear burn. |
+| Per-fill blend modes, "Pass through" for groups | Not built | Blend is per layer only. |

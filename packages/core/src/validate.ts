@@ -1,4 +1,4 @@
-import { ROOT_ID, SCHEMA_VERSION, type DocumentData, type SceneNode } from './model';
+import { BLEND_MODES, IMAGE_ADJUST_KEYS, ROOT_ID, SCHEMA_VERSION, type DocumentData, type ImageAdjust, type SceneNode } from './model';
 
 export class DocumentError extends Error {}
 
@@ -56,6 +56,21 @@ export function validateDocument(doc: DocumentData): void {
     if (n.boolOp && (n.type !== 'GROUP' || !['UNION', 'SUBTRACT', 'INTERSECT', 'EXCLUDE'].includes(n.boolOp))) throw new DocumentError(`Node ${id} has an invalid boolean operation`);
     if (n.type === 'TEXT' && !n.text) throw new DocumentError(`Text node ${id} lacks text props`);
     for (const p of [...n.fills, ...n.strokes]) if (p.type === 'IMAGE' && !doc.assets[p.assetId]) throw new DocumentError(`Missing asset ${p.assetId}`);
+    if (n.blendMode !== undefined && !BLEND_MODES.includes(n.blendMode)) throw new DocumentError(`Node ${id} has an invalid blend mode`);
+    for (const p of [...n.fills, ...n.strokes]) {
+      if (p.blendMode !== undefined && !BLEND_MODES.includes(p.blendMode)) throw new DocumentError(`Node ${id} has a paint with an invalid blend mode`);
+      if (p.type === 'IMAGE') {
+        if (!['FILL', 'FIT', 'STRETCH', 'TILE'].includes(p.scaleMode)) throw new DocumentError(`Node ${id} has an invalid image mode`);
+        if (p.rotation !== undefined && ![0, 90, 180, 270].includes(p.rotation)) throw new DocumentError(`Node ${id} has an invalid image rotation`);
+        for (const [k, v] of Object.entries(p.adjust ?? {})) if (!IMAGE_ADJUST_KEYS.includes(k as keyof ImageAdjust) || !(typeof v === 'number' && v >= -100 && v <= 100)) throw new DocumentError(`Node ${id} has an invalid image adjustment`);
+      } else if (p.type === 'PATTERN') {
+        if (p.sourceId !== null && typeof p.sourceId !== 'string') throw new DocumentError(`Node ${id} has an invalid pattern source`);
+        if (!['RECT', 'OFFSET'].includes(p.tile)) throw new DocumentError(`Node ${id} has an invalid pattern tile type`);
+        if (!(Number.isFinite(p.scale) && p.scale >= 0.02 && p.scale <= 20)) throw new DocumentError(`Node ${id} has an invalid pattern scale`);
+        for (const k of ['spacingX', 'spacingY'] as const) if (!(Number.isFinite(p[k]) && p[k] >= -90 && p[k] <= 1000)) throw new DocumentError(`Node ${id} has an invalid pattern spacing`);
+        if (!['tl', 'tc', 'tr', 'ml', 'c', 'mr', 'bl', 'bc', 'br'].includes(p.align)) throw new DocumentError(`Node ${id} has an invalid pattern alignment`);
+      }
+    }
     n.children.forEach(c => walk(c, id, depth + 1));
   };
   for (const k of ['styles', 'variables', 'collections'] as const) if (!doc[k] || typeof doc[k] !== 'object') throw new DocumentError(`${k} missing`);

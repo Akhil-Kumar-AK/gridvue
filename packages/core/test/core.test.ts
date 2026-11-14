@@ -1047,3 +1047,39 @@ describe('whiteboard model', () => {
     b.items[a.id].votes = { u1: 2 }; b.items[c.id].votes = { u1: 1 }; expect(votesUsed(b, 'u1')).toBe(3);
   });
 });
+
+import { validateDocument as validateDoc, createEmptyDocument as emptyDoc, defaultNode as dNode, addNode as addN, DocStore as DS, pageIds as pIds, solid as sol } from '../src';
+describe('pattern and image paints', () => {
+  const docWith = (fill: any) => { const s = new DS(emptyDoc()); const n = dNode('RECT', { fills: [sol('#f00')] }); addN(s, n, pIds(s.doc)[0]); s.doc.nodes[n.id].fills = [fill]; return s.doc; };
+  const pattern = { type: 'PATTERN', sourceId: null, tile: 'RECT', scale: 1, spacingX: 0, spacingY: 0, align: 'tl', opacity: 1, visible: true };
+  it('accepts valid patterns (even with a missing source) and rejects bad fields', () => {
+    expect(() => validateDoc(docWith(pattern))).not.toThrow();
+    expect(() => validateDoc(docWith({ ...pattern, sourceId: 'gone' }))).not.toThrow();
+    for (const bad of [{ tile: 'HEX' }, { scale: 0 }, { scale: 99 }, { spacingX: -100 }, { spacingY: NaN }, { align: 'x' }]) expect(() => validateDoc(docWith({ ...pattern, ...bad }))).toThrow(DocumentError);
+  });
+  it('validates image mode, rotation and adjustments', () => {
+    const doc = docWith({ type: 'IMAGE', assetId: 'a1', scaleMode: 'TILE', rotation: 90, adjust: { exposure: 20 }, opacity: 1, visible: true }); doc.assets.a1 = { name: 'x', mime: 'image/png' } as any;
+    expect(() => validateDoc(doc)).not.toThrow();
+    for (const bad of [{ scaleMode: 'CROP' }, { rotation: 45 }, { adjust: { exposure: 500 } }, { adjust: { sharpen: 1 } }]) { const d = docWith({ type: 'IMAGE', assetId: 'a1', scaleMode: 'FILL', opacity: 1, visible: true, ...bad }); d.assets.a1 = { name: 'x', mime: 'image/png' } as any; expect(() => validateDoc(d)).toThrow(DocumentError); }
+  });
+});
+
+import { BLEND_MODES as BMODES, BLEND_GROUPS as BGROUPS, BLEND_LABEL as BLABEL } from '../src';
+describe('blend modes', () => {
+  it('lists 18 unique modes, each labelled, and validation accepts them and rejects unknown ones', () => {
+    expect(BMODES).toHaveLength(18); expect(new Set(BMODES).size).toBe(18); expect(BGROUPS.flat()).toEqual(BMODES);
+    for (const m of BMODES) expect(BLABEL[m]).toBeTruthy();
+    const s = new DS(emptyDoc()); const n = dNode('RECT', { fills: [sol('#f00')] }); addN(s, n, pIds(s.doc)[0]);
+    for (const m of BMODES) { s.doc.nodes[n.id].blendMode = m; expect(() => validateDoc(s.doc)).not.toThrow(); }
+    (s.doc.nodes[n.id] as any).blendMode = 'BURN_IT_ALL'; expect(() => validateDoc(s.doc)).toThrow();
+  });
+});
+
+describe('per-paint blend modes', () => {
+  it('accepts a blend mode on fills and strokes and rejects unknown ones', () => {
+    const s = new DS(emptyDoc()); const n = dNode('RECT', { fills: [sol('#f00')] }); addN(s, n, pIds(s.doc)[0]);
+    s.doc.nodes[n.id].fills = [{ ...sol('#f00'), blendMode: 'MULTIPLY' }]; s.doc.nodes[n.id].strokes = [{ ...sol('#000'), blendMode: 'SCREEN' }];
+    expect(() => validateDoc(s.doc)).not.toThrow();
+    (s.doc.nodes[n.id].fills[0] as any).blendMode = 'NOPE'; expect(() => validateDoc(s.doc)).toThrow();
+  });
+});

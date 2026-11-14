@@ -156,6 +156,7 @@ export async function exportXd(doc: DocumentData, pageId: string, fileName: stri
       gradients[ref] = { type: 'linear', x1: (w / 2 - dx * half) / (w || 1), y1: (h / 2 - dy * half) / (h || 1), x2: (w / 2 + dx * half) / (w || 1), y2: (h / 2 + dy * half) / (h || 1), stops: p.stops.map(s => ({ offset: s.pos, color: rgbv(s.color, s.opacity) })) };
       return { type: 'gradient', gradient: { ref } };
     }
+    if (p.type === 'PATTERN') return { type: 'solid', color: rgbv('#C8C8C8') };
     const uid = uidOf.get(p.assetId); if (!uid) return { type: 'solid', color: rgbv('#C8C8C8') };
     return { type: 'pattern', pattern: { width: w, height: h, meta: { ux: { uid, scaleBehavior: p.scaleMode === 'FIT' ? 'fit' : 'fill' } } } };
   };

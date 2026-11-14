@@ -166,6 +166,10 @@ export const I = {
   panelOpen: ic(<><rect x="3.500" y="4.500" width="17" height="15" rx="4" /><path d="M13.500 10l2.500 2-2.500 2" />{t(<path d="M9.500 4.500v15" />)}</>),
   pipette: ic(<><path d="M16 4a2.100 2.100 0 013 3l-2.500 2.500-3-3zM13 8.500l-8 8-1 3.500 3.500-1 8-8" />{t(<path d="M14.500 5.500l4 4" />)}</>),
   signout: ic16(<><path d="M10 5l3 3-3 3M13 8H6.500" />{t(<path d="M6 3H3.500v10H6" />)}</>),
+  fillSolid: ic(<><rect x="3.500" y="3.500" width="17" height="17" rx="4" /><rect x="8" y="8" width="8" height="8" rx="1.600" fill="currentColor" stroke="none" /></>),
+  fillGradient: ic(<><rect x="3.500" y="3.500" width="17" height="17" rx="4" /><g fill="currentColor" stroke="none"><circle cx="16.500" cy="8" r=".9" /><circle cx="13.500" cy="10.500" r=".9" /><circle cx="16.500" cy="12" r=".9" /><circle cx="11" cy="13" r=".9" /><circle cx="14" cy="15" r=".9" /><circle cx="16.500" cy="16.500" r=".9" /><circle cx="9" cy="16" r=".9" /><circle cx="11.500" cy="17.500" r=".9" /></g></>),
+  fillPattern: ic(<><rect x="3.500" y="3.500" width="17" height="17" rx="4" /><path d="M9 3.500V9M15 3.500V9M9 15v5.500M15 15v5.500M3.500 9H9M15 9h5.500M3.500 15H9M15 15h5.500" /><rect x="9" y="9" width="6" height="6" rx="1" /></>),
+  fillImage: ic(<><rect x="3.500" y="3.500" width="17" height="17" rx="4" /><circle cx="15.500" cy="8.800" r="1.500" /><path d="M3.800 16.500l4.700-4.200 3.500 3 2.700-2.300 5.300 4.600" /></>),
 };
 /** Gridvue mark: a 2×2 grid whose fourth cell is an eye ("vue"), on the brand tile. */
 export function BrandMark({ size = 28, color = '#4f46e5' }: { size?: number; color?: string }) {

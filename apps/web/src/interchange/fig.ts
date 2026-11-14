@@ -45,7 +45,7 @@ export function importFig(bytes: Uint8Array, fileName: string): Imported {
 }
 
 // ---------------------------------------------------------------- export
-const BLEND: Record<string, string> = { NORMAL: 'PASS_THROUGH', MULTIPLY: 'MULTIPLY', SCREEN: 'SCREEN', OVERLAY: 'OVERLAY', DARKEN: 'DARKEN', LIGHTEN: 'LIGHTEN' };
+const BLEND: Record<string, string> = { NORMAL: 'PASS_THROUGH', DARKEN: 'DARKEN', MULTIPLY: 'MULTIPLY', PLUS_DARKER: 'LINEAR_BURN', COLOR_BURN: 'COLOR_BURN', LIGHTEN: 'LIGHTEN', SCREEN: 'SCREEN', PLUS_LIGHTER: 'LINEAR_DODGE', COLOR_DODGE: 'COLOR_DODGE', OVERLAY: 'OVERLAY', SOFT_LIGHT: 'SOFT_LIGHT', HARD_LIGHT: 'HARD_LIGHT', DIFFERENCE: 'DIFFERENCE', EXCLUSION: 'EXCLUSION', HUE: 'HUE', SATURATION: 'SATURATION', COLOR: 'COLOR', LUMINOSITY: 'LUMINOSITY' };
 const rgb = (h: string, a = 1) => { const v = h.replace('#', '').padEnd(6, '0'); return { r: parseInt(v.slice(0, 2), 16) / 255, g: parseInt(v.slice(2, 4), 16) / 255, b: parseInt(v.slice(4, 6), 16) / 255, a }; };
 const pos = (i: number) => { const c = (n: number) => String.fromCharCode(33 + (n % 90)); return c(Math.floor(i / 8100)) + c(Math.floor(i / 90)) + c(i); };
 const WEIGHT_NAME: Record<number, string> = { 100: 'Thin', 200: 'Extra Light', 300: 'Light', 400: 'Regular', 500: 'Medium', 600: 'Semi Bold', 700: 'Bold', 800: 'Extra Bold', 900: 'Black' };
@@ -79,20 +79,22 @@ export async function exportFig(doc: DocumentData, fileName: string, getAsset: A
   const hashOf = new Map<string, Uint8Array>();
   for (const id of Object.keys(doc.assets)) { try { const a = await getAsset(id); const h = await sha1(a.bytes); hashOf.set(id, h); imageFiles[`images/${hex(h)}`] = a.bytes; } catch { /* missing asset: its fills fall back to grey */ } }
 
+  const pb = (p: Paint) => (p.blendMode && p.blendMode !== 'NORMAL' ? BLEND[p.blendMode] ?? 'NORMAL' : 'NORMAL');
   const paints = (list: Paint[], w: number, h: number): any[] => list.map(p => {
-    if (p.type === 'SOLID') return { type: 'SOLID', color: rgb(p.color, 1), opacity: p.opacity, visible: p.visible, blendMode: 'NORMAL' };
+    if (p.type === 'SOLID') return { type: 'SOLID', color: rgb(p.color, 1), opacity: p.opacity, visible: p.visible, blendMode: pb(p) };
     if (p.type === 'LINEAR') {
       const a = (p.angle * Math.PI) / 180, dx = Math.cos(a), dy = Math.sin(a), half = (Math.abs(w * dx) + Math.abs(h * dy)) / 2;
       const S = { x: (w / 2 - dx * half) / (w || 1), y: (h / 2 - dy * half) / (h || 1) }, E = { x: (w / 2 + dx * half) / (w || 1), y: (h / 2 + dy * half) / (h || 1) };
       const u = { x: E.x - S.x, y: E.y - S.y }, uu = u.x * u.x + u.y * u.y || 1, v = { x: -u.y, y: u.x };
       return {
-        type: 'GRADIENT_LINEAR', opacity: p.opacity, visible: p.visible, blendMode: 'NORMAL', stops: p.stops.map(s => ({ color: rgb(s.color, s.opacity), position: s.pos })),
+        type: 'GRADIENT_LINEAR', opacity: p.opacity, visible: p.visible, blendMode: pb(p), stops: p.stops.map(s => ({ color: rgb(s.color, s.opacity), position: s.pos })),
         transform: { m00: u.x / uu, m01: u.y / uu, m02: -(S.x * u.x + S.y * u.y) / uu, m10: v.x / uu, m11: v.y / uu, m12: 0.5 - (S.x * v.x + S.y * v.y) / uu },
       };
     }
+    if (p.type === 'PATTERN') return { type: 'SOLID', color: rgb('#C8C8C8'), opacity: p.opacity, visible: p.visible }; // repeating-layer fills have no .fig equivalent here
     const hash = hashOf.get(p.assetId);
     if (!hash) return { type: 'SOLID', color: rgb('#C8C8C8'), opacity: p.opacity, visible: p.visible };
-    return { type: 'IMAGE', opacity: p.opacity, visible: p.visible, blendMode: 'NORMAL', image: { hash, name: doc.assets[p.assetId]?.name ?? '' }, imageScaleMode: p.scaleMode === 'FIT' ? 'FIT' : p.scaleMode === 'STRETCH' ? 'STRETCH' : 'FILL' };
+    return { type: 'IMAGE', opacity: p.opacity, visible: p.visible, blendMode: pb(p), image: { hash, name: doc.assets[p.assetId]?.name ?? '' }, imageScaleMode: p.scaleMode === 'FIT' ? 'FIT' : p.scaleMode === 'STRETCH' ? 'STRETCH' : 'FILL' };
   });
 
   const emit = (n: SceneNode, parentGuid: { sessionID: number; localID: number }, index: number) => {

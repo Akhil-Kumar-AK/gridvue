@@ -246,6 +246,20 @@ export class EditorSession {
     return true;
   }
 
+  /** Upload an image and register it as a document asset without placing a layer (used by the colour picker's image fill). */
+  async addImageAsset(file: File): Promise<string | null> {
+    const ui = useEditor.getState();
+    if (!this.canEdit) { ui.toast('View-only: you cannot edit this file', 'error'); return null; }
+    if (!/^image\/(png|jpeg|gif|webp)$/.test(file.type)) { ui.toast('Unsupported image type (PNG, JPEG, GIF or WebP)', 'error'); return null; }
+    try {
+      const up = await api.uploadAsset(this.file.id, file);
+      const img = await new Promise<HTMLImageElement>((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('Could not decode image')); i.src = URL.createObjectURL(file); });
+      this.images.put(up.assetId, img);
+      this.store.transact('Add image', () => { this.store.apply({ t: 'asset', id: up.assetId, asset: { name: file.name, mime: up.mime, width: img.naturalWidth, height: img.naturalHeight } }); });
+      return up.assetId;
+    } catch (e) { ui.toast((e as Error).message, 'error'); return null; }
+  }
+
   async replaceImage(ids: string[], file: File) {
     const ui = useEditor.getState();
     try {

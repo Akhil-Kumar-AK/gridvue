@@ -93,7 +93,7 @@ function EditorShell({ session, onExit }: { session: EditorSession; onExit: () =
       if (e.key === 'Enter' && !m) { const a = byId('vec.edit'); if (a?.enabled()) { e.preventDefault(); a.run(); return; } }
       if (e.code === 'Space') { e.preventDefault(); c?.setSpace(true); return; }
       if (e.key.startsWith('Arrow')) { e.preventDefault(); const d = e.shiftKey ? 10 : 1; c?.nudge(e.key === 'ArrowLeft' ? -d : e.key === 'ArrowRight' ? d : 0, e.key === 'ArrowUp' ? -d : e.key === 'ArrowDown' ? d : 0); return; }
-      if (e.key === 'Escape') { c?.cancelGesture(); set({ menu: null }); }
+      if (e.key === 'Escape') { c?.cancelGesture(); set({ menu: null, pickSource: null }); }
       const id = shortcutFor(e);
       if (!id) return;
       if (id === 'edit.paste') return; // let the browser raise a paste event (Figma layers, images, then Layr's own clipboard)

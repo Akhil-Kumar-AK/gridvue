@@ -3,13 +3,23 @@ export const SCHEMA_VERSION = 2; // v2 adds styles, variables and variable colle
 export const ROOT_ID = 'doc';
 
 export type NodeType = 'DOCUMENT' | 'PAGE' | 'FRAME' | 'GROUP' | 'RECT' | 'ELLIPSE' | 'LINE' | 'TEXT' | 'COMPONENT' | 'COMPONENT_SET' | 'INSTANCE' | 'VECTOR';
-export type BlendMode = 'NORMAL' | 'MULTIPLY' | 'SCREEN' | 'OVERLAY' | 'DARKEN' | 'LIGHTEN';
+export type BlendMode = 'NORMAL' | 'DARKEN' | 'MULTIPLY' | 'PLUS_DARKER' | 'COLOR_BURN' | 'LIGHTEN' | 'SCREEN' | 'PLUS_LIGHTER' | 'COLOR_DODGE' | 'OVERLAY' | 'SOFT_LIGHT' | 'HARD_LIGHT' | 'DIFFERENCE' | 'EXCLUSION' | 'HUE' | 'SATURATION' | 'COLOR' | 'LUMINOSITY';
+/** Blend modes in menu order, grouped the way design tools group them. */
+export const BLEND_GROUPS: BlendMode[][] = [['NORMAL'], ['DARKEN', 'MULTIPLY', 'PLUS_DARKER', 'COLOR_BURN'], ['LIGHTEN', 'SCREEN', 'PLUS_LIGHTER', 'COLOR_DODGE'], ['OVERLAY', 'SOFT_LIGHT', 'HARD_LIGHT'], ['DIFFERENCE', 'EXCLUSION'], ['HUE', 'SATURATION', 'COLOR', 'LUMINOSITY']];
+export const BLEND_LABEL: Record<BlendMode, string> = { NORMAL: 'Normal', DARKEN: 'Darken', MULTIPLY: 'Multiply', PLUS_DARKER: 'Plus darker', COLOR_BURN: 'Color burn', LIGHTEN: 'Lighten', SCREEN: 'Screen', PLUS_LIGHTER: 'Plus lighter', COLOR_DODGE: 'Color dodge', OVERLAY: 'Overlay', SOFT_LIGHT: 'Soft light', HARD_LIGHT: 'Hard light', DIFFERENCE: 'Difference', EXCLUSION: 'Exclusion', HUE: 'Hue', SATURATION: 'Saturation', COLOR: 'Color', LUMINOSITY: 'Luminosity' };
+export const BLEND_MODES: BlendMode[] = BLEND_GROUPS.flat();
 
-export interface SolidPaint { type: 'SOLID'; color: string; opacity: number; visible: boolean }
+export interface SolidPaint { type: 'SOLID'; color: string; opacity: number; visible: boolean; /** how this fill blends with what is under it (default Normal) */ blendMode?: BlendMode }
 export interface GradientStop { pos: number; color: string; opacity: number }
-export interface LinearPaint { type: 'LINEAR'; stops: GradientStop[]; angle: number; opacity: number; visible: boolean }
-export interface ImagePaint { type: 'IMAGE'; assetId: string; scaleMode: 'FILL' | 'FIT' | 'STRETCH'; opacity: number; visible: boolean }
-export type Paint = SolidPaint | LinearPaint | ImagePaint;
+export interface LinearPaint { type: 'LINEAR'; stops: GradientStop[]; angle: number; opacity: number; visible: boolean; blendMode?: BlendMode }
+/** Non-destructive image adjustments, each -100..100 (0 = unchanged). */
+export interface ImageAdjust { exposure: number; contrast: number; saturation: number; temperature: number; tint: number; highlights: number; shadows: number }
+export const IMAGE_ADJUST_KEYS: (keyof ImageAdjust)[] = ['exposure', 'contrast', 'saturation', 'temperature', 'tint', 'highlights', 'shadows'];
+export interface ImagePaint { type: 'IMAGE'; assetId: string; scaleMode: 'FILL' | 'FIT' | 'STRETCH' | 'TILE'; /** quarter turns in degrees */ rotation?: 0 | 90 | 180 | 270; adjust?: Partial<ImageAdjust>; opacity: number; visible: boolean; blendMode?: BlendMode }
+export type PatternAlign = 'tl' | 'tc' | 'tr' | 'ml' | 'c' | 'mr' | 'bl' | 'bc' | 'br';
+/** A layer repeated as a tile. `scale` is a multiplier, spacing is a percentage of the (scaled) tile size. */
+export interface PatternPaint { type: 'PATTERN'; sourceId: string | null; tile: 'RECT' | 'OFFSET'; scale: number; spacingX: number; spacingY: number; align: PatternAlign; opacity: number; visible: boolean; blendMode?: BlendMode }
+export type Paint = SolidPaint | LinearPaint | ImagePaint | PatternPaint;
 
 export interface DropShadow { type: 'DROP_SHADOW'; x: number; y: number; blur: number; color: string; opacity: number; visible: boolean }
 export interface LayerBlur { type: 'LAYER_BLUR'; radius: number; visible: boolean }

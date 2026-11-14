@@ -9,7 +9,7 @@ export interface Guide { x1: number; y1: number; x2: number; y2: number }
 export type SaveStatus = 'saved' | 'dirty' | 'saving' | 'offline' | 'conflict' | 'error' | 'readonly';
 export interface Toast { id: number; text: string; kind: 'info' | 'error' }
 export interface MenuState { x: number; y: number; items: MenuItem[] }
-export interface MenuItem { label: string; icon?: string; shortcut?: string; disabled?: boolean; run?: () => void; separator?: boolean }
+export interface MenuItem { label: string; icon?: string; shortcut?: string; disabled?: boolean; run?: () => void; separator?: boolean; /** shows a check slot; true highlights the row as the current choice */ checked?: boolean }
 
 interface EditorUI {
   tool: Tool; selection: string[]; camera: Camera; pageId: string; hoverId: string | null; hoverFrom: 'canvas' | 'panel' | null;
@@ -17,6 +17,8 @@ interface EditorUI {
   saveStatus: SaveStatus; saveMessage: string; theme: 'light' | 'dark';
   leftWidth: number; rightWidth: number;
   toasts: Toast[]; menu: MenuState | null; paletteOpen: boolean; shareOpen: boolean; exportOpen: boolean;
+  /** while set, the next canvas click chooses a layer (used by pattern fills) */
+  pickSource: ((id: string) => void) | null;
   drawOpts: Record<'brush' | 'pencil', DrawOpts>;
   vecTool: VecTool;
   set: (p: Partial<EditorUI>) => void;
@@ -36,6 +38,7 @@ export const useEditor = create<EditorUI>((set, get) => ({
   saveStatus: 'saved', saveMessage: '', theme: (ls.get('layr:theme', 'dark') === 'light' ? 'light' : 'dark'), // dark is the default
   leftWidth: Number(ls.get('layr:left2', '290')), rightWidth: Number(ls.get('layr:right5', '241')),
   toasts: [], menu: null, paletteOpen: false, shareOpen: false, exportOpen: false,
+  pickSource: null,
   drawOpts: { brush: { color: '#000000', size: 16, style: 'basic' }, pencil: { color: '#000000', size: 2, style: 'basic' } },
   vecTool: 'move',
   set: p => set(p),
