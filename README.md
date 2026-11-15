@@ -161,4 +161,4 @@ Issues and pull requests are welcome. Before opening a pull request, run `npm ru
 
 ## License
 
-No license file has been added yet. Until one is added, the default copyright applies and others may not legally reuse the code. See [choosealicense.com](https://choosealicense.com) to pick one (MIT is a common choice for open-source tools).
+[MIT](LICENSE). You can use, copy, modify and share Gridvue, including in commercial projects, as long as you keep the copyright notice. It comes with no warranty.
