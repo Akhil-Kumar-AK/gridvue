@@ -225,8 +225,10 @@ export class EditorSession {
     const cam = ui.camera, w = 640, h = 440;
     const view = document.querySelector('[data-testid="design-canvas"]')?.getBoundingClientRect(); // centre of the canvas area, not of the whole window
     const cx = cam.x + ((view?.width ?? window.innerWidth) / 2) / cam.zoom, cy = cam.y + ((view?.height ?? window.innerHeight) / 2) / cam.zoom;
-    const node = defaultNode('EMBED', { name: board.name, embed: { fileId: board.id, fileName: board.name, kind: 'whiteboard' }, width: w, height: h, x: Math.round(cx - w / 2), y: Math.round(cy - h / 2) });
-    this.store.transact('Insert whiteboard', () => { addNode(this.store, node, this.pageId); });
+    const parentId = this.insertionParent(); // inside the selected frame when there is one, so prototypes can include the card
+    const pb = this.store.doc.nodes[parentId].type === 'PAGE' ? { x: 0, y: 0 } : worldBounds(this.store.doc, parentId);
+    const node = defaultNode('EMBED', { name: board.name, embed: { fileId: board.id, fileName: board.name, kind: 'whiteboard' }, width: w, height: h, x: Math.round(cx - pb.x - w / 2), y: Math.round(cy - pb.y - h / 2) });
+    this.store.transact('Insert whiteboard', () => { addNode(this.store, node, parentId); });
     ui.set({ selection: [node.id], tool: 'select' });
     ui.toast(`Added “${board.name}”. Work right inside the card; drag items out of it onto the design to make them editable layers.`);
   }

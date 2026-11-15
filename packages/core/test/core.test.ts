@@ -872,6 +872,19 @@ describe('prototype runtime', () => {
     expect(rt.frame).toBe(home.id); expect(rt.canGoBack).toBe(false);
     expect(store.doc.nodes[home.id].fills[0]).toMatchObject({ color: '#ffffff' }); // design doc untouched
   });
+  it('an interaction can open a whiteboard on click or hover; an unset board is reported', () => {
+    const { store, home, btn } = proto();
+    addInteraction(store, btn.id, newInteraction({ type: 'CLICK' }, [{ type: 'WHITEBOARD', fileId: 'board_1', fileName: 'Roadmap' }]));
+    const rt = new PrototypeRuntime(store.doc, home.id);
+    expect(click(rt, 50, 30)).toEqual([{ kind: 'whiteboard', fileId: 'board_1', fileName: 'Roadmap' }]);
+    expect(rt.frame).toBe(home.id); // opening a board does not leave the frame
+    const h = defaultNode('RECT', { name: 'Hover', x: 150, y: 20, width: 100, height: 40 }); addNode(store, h, home.id);
+    addInteraction(store, h.id, newInteraction({ type: 'HOVER' }, [{ type: 'WHITEBOARD', fileId: 'board_2', fileName: 'Ideas' }]));
+    const rt2 = new PrototypeRuntime(store.doc, home.id);
+    expect(rt2.fire({ type: 'HOVER' }, rt2.hitChainAt({ x: 200, y: 30 }).chain)).toEqual([{ kind: 'whiteboard', fileId: 'board_2', fileName: 'Ideas' }]);
+    expect(newAction('WHITEBOARD')).toEqual({ type: 'WHITEBOARD', fileId: '', fileName: '' });
+    expect(rt.run([newAction('WHITEBOARD')], btn.id)).toEqual([{ kind: 'error', message: 'Pick a whiteboard for this interaction' }]);
+  });
   it('bubbles to ancestors; deepest interaction wins; hidden/clipped layers are not hit', () => {
     const { store, home, detail, modal, btn } = proto();
     addInteraction(store, home.id, newInteraction({ type: 'CLICK' }, [newAction('NAVIGATE', modal.id)]));

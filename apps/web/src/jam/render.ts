@@ -338,9 +338,9 @@ export function fitBoardCamera(board: BoardData, W: number, H: number): { x: num
   return { zoom: z, x: box.x + box.w / 2 - W / 2 / z, y: box.y + box.h / 2 - H / 2 / z };
 }
 /** Draw a whole board (no editing chrome) onto a fresh canvas of w x h CSS pixels, at `dpr` device pixels per pixel. Used for whiteboard cards inside design files. */
-export function renderBoardCanvas(board: BoardData, w: number, h: number, dpr: number, dark: boolean, onImage: () => void): HTMLCanvasElement {
+export function renderBoardCanvas(board: BoardData, w: number, h: number, dpr: number, dark: boolean, onImage: () => void, cam?: { x: number; y: number; zoom: number }): HTMLCanvasElement {
   const cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(w * dpr)); cv.height = Math.max(1, Math.round(h * dpr));
-  drawBoard(cv.getContext('2d')!, board, fitBoardCamera(board, w, h), w, h, { dark, dpr, selection: new Set(), hover: null, editing: null, now: Date.now(), meId: '', chrome: false, marquee: null, guides: [], onImage, connectHint: null, draft: null, hideEditingText: false });
+  drawBoard(cv.getContext('2d')!, board, cam ?? fitBoardCamera(board, w, h), w, h, { dark, dpr, selection: new Set(), hover: null, editing: null, now: Date.now(), meId: '', chrome: false, marquee: null, guides: [], onImage, connectHint: null, draft: null, hideEditingText: false });
   return cv;
 }
 export { boxOfPoints, votesUsed };

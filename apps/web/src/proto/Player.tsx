@@ -5,14 +5,16 @@ import { ImageCache } from '../engine/images';
 import { Icon } from '../icons';
 import { Select } from '../ui/Select';
 import { askText, askConfirm } from '../ui/dialogs';
+import { WhiteboardView } from './WhiteboardView';
 
 type Dir = 'LEFT' | 'RIGHT' | 'TOP' | 'BOTTOM';
 const VEC: Record<Dir, Pt> = { LEFT: { x: -1, y: 0 }, RIGHT: { x: 1, y: 0 }, TOP: { x: 0, y: -1 }, BOTTOM: { x: 0, y: 1 } };
 const ID = [1, 0, 0, 1, 0, 0] as const;
 
+const FRAME_LIKE = new Set(['FRAME', 'COMPONENT', 'COMPONENT_SET']);
 /** Which frame a "Present" press should start from. */
 export function pickStart(doc: DocumentData, pageId: string, selection: string[]): string | null {
-  for (const s of selection) { const f = doc.nodes[s] && topFrameOf(doc, s); if (f) return f; }
+  for (const s of selection) { const f = doc.nodes[s] && topFrameOf(doc, s); if (f && FRAME_LIKE.has(doc.nodes[f].type)) return f; } // a loose layer on the page is not a screen
   const fl = flows(doc).find(f => f.pageId === pageId) ?? flows(doc)[0];
   if (fl) return fl.frameId;
   return topFrames(doc, pageId)[0]?.id ?? null;
@@ -28,6 +30,7 @@ export function Player({ doc, startFrame, onClose, standalone, fileId }: { doc: 
   const [start, setStart] = useState(startFrame);
   const [fit, setFit] = useState(true);
   const [hotspots, setHotspots] = useState(false);
+  const [board, setBoard] = useState<{ fileId: string; fileName: string } | null>(null);
   const [msg, setMsg] = useState('');
   const [, force] = useState(0);
   const page = doc.nodes[doc.nodes[startFrame]?.parent ?? ''];
@@ -156,6 +159,7 @@ export function Player({ doc, startFrame, onClose, standalone, fileId }: { doc: 
   const play = (trs: Transition[], ovBefore?: Anim['ovBefore']) => {
     for (const t of trs) {
       if (t.kind === 'error') { setMsg(t.message); continue; }
+      if (t.kind === 'whiteboard') { setBoard({ fileId: t.fileId, fileName: t.fileName }); continue; }
       if (t.kind === 'link') { void askConfirm('Open this link?', { message: t.url, okLabel: 'Open' }).then(yes => { if (yes) window.open(t.url, '_blank', 'noopener,noreferrer'); }); continue; }
       const anim = (t as { anim?: Animation }).anim;
       const dur = !anim || anim.type === 'INSTANT' && t.kind !== 'scroll' ? 0 : anim.duration;
@@ -272,23 +276,31 @@ export function Player({ doc, startFrame, onClose, standalone, fileId }: { doc: 
   })() : [];
 
   const flowList = flows(doc);
+  const startPage = (() => { let n = doc.nodes[startFrame]; while (n && n.type !== 'PAGE' && n.parent) n = doc.nodes[n.parent]; return n?.type === 'PAGE' ? n.id : null; })();
+  const screens = startPage ? topFrames(doc, startPage) : [];
   const sc = st.current.scale;
   return (
     <div className="player" role="dialog" aria-label="Prototype player">
       <div className="player-bar">
-        {!standalone && <button className="btn ghost" onClick={onClose} aria-label="Close player"><Icon n="close" size={14} /> Close</button>}
-        {standalone && <button className="btn ghost" onClick={onClose}><Icon n="back" size={14} /> Back</button>}
-        <Select aria-label="Flow" value={start} onChange={e => pickFlow(e.target.value)}>
+        <button className="pb-btn" onClick={onClose} aria-label={standalone ? 'Back' : 'Close player'}><Icon n={standalone ? 'arrowLeft' : 'close'} size={16} /><span>{standalone ? 'Back' : 'Close'}</span></button>
+        <span className="pb-sep" />
+        <label className="pb-field" title="Flow to play"><Icon n="proto" size={16} /><Select aria-label="Flow" value={start} onChange={e => pickFlow(e.target.value)}>
           {flowList.map(f => <option key={f.frameId} value={f.frameId}>Flow: {f.name}</option>)}
-          {topFrames(doc, doc.nodes[startFrame]?.parent ?? '').filter(f => !f.flowStart).map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-        </Select>
+          {screens.filter(f => !f.flowStart).map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+          {!screens.length && !flowList.length && <option value={start}>{doc.nodes[start]?.name ?? 'Screen'}</option>}
+        </Select></label>
         <span className="spacer" />
-        <button className="btn ghost" onClick={() => fire(() => rt.run([{ type: 'BACK', anim: { type: 'INSTANT', easing: 'LINEAR', duration: 0 } }], rt.frame))} disabled={!rt.canGoBack} title="Back (←)"><Icon n="back" size={14} /></button>
-        <button className="btn ghost" onClick={restart} title="Restart (R)"><Icon n="rotate90" size={14} /> Restart</button>
-        <button className={'btn ghost' + (hotspots ? ' on' : '')} aria-pressed={hotspots} onClick={() => setHotspots(!hotspots)} title="Highlight interactive layers">Hotspots</button>
-        <Select aria-label="Device" value={spec ? spec.id : 'NONE'} onChange={e => setDevice(e.target.value)}><option value="NONE">No device</option>{(['Phone', 'Tablet', 'Laptop', 'Desktop'] as const).map(g => <optgroup key={g} label={g}>{DEVICES.filter(d => d.group === g).map(d => <option key={d.id} value={d.id}>{d.label}</option>)}</optgroup>)}</Select>
-        <button className="btn ghost" onClick={() => setFit(!fit)}>{fit ? 'Fit' : '100%'}</button>
-        {!standalone && fileId && <a className="btn ghost" href={`#/play/${fileId}`} target="_blank" rel="noreferrer">Open in new tab</a>}
+        <div className="pb-group">
+          <button className="pb-btn icon" onClick={() => fire(() => rt.run([{ type: 'BACK', anim: { type: 'INSTANT', easing: 'LINEAR', duration: 0 } }], rt.frame))} disabled={!rt.canGoBack} title="Back (←)" aria-label="Previous screen"><Icon n="arrowLeft" size={16} /></button>
+          <button className="pb-btn" onClick={restart} title="Restart (R)"><Icon n="rotate90" size={16} /><span>Restart</span></button>
+        </div>
+        <span className="pb-sep" />
+        <div className="pb-group">
+          <button className={'pb-btn' + (hotspots ? ' on' : '')} aria-pressed={hotspots} onClick={() => setHotspots(!hotspots)} title="Highlight interactive layers"><Icon n={hotspots ? 'eye' : 'eyeOff'} size={16} /><span>Hotspots</span></button>
+          <button className="pb-btn" onClick={() => setFit(!fit)} title={fit ? 'Showing to fit: switch to 100%' : 'Showing at 100%: switch to fit'}><Icon n="expand" size={16} /><span>{fit ? 'Fit' : '100%'}</span></button>
+        </div>
+        <label className="pb-field" title="Device frame"><Icon n="device" size={16} /><Select aria-label="Device" value={spec ? spec.id : 'NONE'} onChange={e => setDevice(e.target.value)}><option value="NONE">No device</option>{(['Phone', 'Tablet', 'Laptop', 'Desktop'] as const).map(g => <optgroup key={g} label={g}>{DEVICES.filter(d => d.group === g).map(d => <option key={d.id} value={d.id}>{d.label}</option>)}</optgroup>)}</Select></label>
+        {!standalone && fileId && <><span className="pb-sep" /><a className="pb-btn" href={`#/play/${fileId}`} target="_blank" rel="noreferrer"><Icon n="external" size={16} /><span>Open in new tab</span></a></>}
       </div>
       <div className="player-stage" ref={wrap} style={{ background: bg }}>
         <div className={`device ${spec?.kind ?? ''}`} data-cam={spec?.camera} data-device={spec?.id} style={{ width: W * sc, height: H * sc, ...(spec ? { ['--bezel' as string]: `${spec.bezel}px`, ['--rad' as string]: `${spec.radius}px` } : {}) }}>
@@ -299,6 +311,7 @@ export function Player({ doc, startFrame, onClose, standalone, fileId }: { doc: 
           {spots.map((s, i) => <div key={i} className="hotspot" style={{ left: s.x * sc, top: s.y * sc, width: s.w * sc, height: s.h * sc }} />)}
         </div>
       </div>
+      {board && <WhiteboardView fileId={board.fileId} fileName={board.fileName} onClose={() => setBoard(null)} />}
       <div className="player-foot" aria-live="polite">
         <span className="muted">{rt.doc.nodes[rt.frame]?.name}{rt.overlays.length ? ` + ${rt.overlays.length} overlay` : ''}</span>
         {msg && <span className="perr" role="alert">{msg} <button className="icon-btn" aria-label="Dismiss" onClick={() => setMsg('')}><Icon n="close" size={11} /></button></span>}

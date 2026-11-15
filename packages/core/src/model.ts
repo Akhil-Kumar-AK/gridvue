@@ -82,6 +82,8 @@ export type ProtoAction =
   | { type: 'BACK'; anim: Animation }
   | { type: 'SCROLL_TO'; to: string; anim: Animation }
   | { type: 'LINK'; url: string }
+  /** open one of the user's whiteboards (a read-only view you can pan and zoom, with a button to open it for editing) */
+  | { type: 'WHITEBOARD'; fileId: string; fileName: string }
   | { type: 'CHANGE_TO'; to: string; anim: Animation }
   | { type: 'SET_VAR'; variableId: string; expr: string }
   | { type: 'CONDITIONAL'; branches: { cond: string; actions: ProtoAction[] }[]; otherwise: ProtoAction[] };

@@ -1,4 +1,5 @@
-import { useState, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
+import { api } from '../api';
 import {
   DEVICES, ExprError, addInteraction, deviceSpec, evaluate, flows, newAction, newInteraction, removeInteraction, setFlowStart, setProps, topFrameOf, topFrames, updateInteraction,
   type Animation, type Easing, type Interaction, type ProtoAction, type SceneNode, type Trigger,
@@ -10,7 +11,7 @@ import { NumberField, ColorField } from './fields';
 import { Select } from '../ui/Select';
 
 const TRIGGERS: [Trigger['type'], string][] = [['CLICK', 'On click / tap'], ['DRAG', 'On drag'], ['HOVER', 'While hovering'], ['PRESS', 'While pressing'], ['MOUSE_ENTER', 'Mouse enter'], ['MOUSE_LEAVE', 'Mouse leave'], ['MOUSE_DOWN', 'Mouse down'], ['MOUSE_UP', 'Mouse up'], ['KEY', 'Key press'], ['DELAY', 'After delay']];
-const ACTIONS: [ProtoAction['type'], string][] = [['NAVIGATE', 'Navigate to'], ['BACK', 'Back'], ['OVERLAY_OPEN', 'Open overlay'], ['OVERLAY_SWAP', 'Swap overlay'], ['OVERLAY_CLOSE', 'Close overlay'], ['SCROLL_TO', 'Scroll to'], ['CHANGE_TO', 'Change to (component)'], ['SET_VAR', 'Set variable'], ['CONDITIONAL', 'Conditional'], ['LINK', 'Open link']];
+const ACTIONS: [ProtoAction['type'], string][] = [['NAVIGATE', 'Navigate to'], ['BACK', 'Back'], ['OVERLAY_OPEN', 'Open overlay'], ['OVERLAY_SWAP', 'Swap overlay'], ['OVERLAY_CLOSE', 'Close overlay'], ['SCROLL_TO', 'Scroll to'], ['CHANGE_TO', 'Change to (component)'], ['SET_VAR', 'Set variable'], ['CONDITIONAL', 'Conditional'], ['LINK', 'Open link'], ['WHITEBOARD', 'Open whiteboard']];
 const ANIMS: [Animation['type'], string][] = [['INSTANT', 'Instant'], ['DISSOLVE', 'Dissolve'], ['SMART_ANIMATE', 'Smart animate'], ['MOVE_IN', 'Move in'], ['MOVE_OUT', 'Move out'], ['PUSH', 'Push'], ['SLIDE_IN', 'Slide in'], ['SLIDE_OUT', 'Slide out']];
 const EASINGS: [string, string][] = [['LINEAR', 'Linear'], ['EASE_IN', 'Ease in'], ['EASE_OUT', 'Ease out'], ['EASE_IN_OUT', 'Ease in and out'], ['EASE_IN_BACK', 'Ease in back'], ['EASE_OUT_BACK', 'Ease out back'], ['EASE_IN_OUT_BACK', 'Ease in and out back'], ['SPRING', 'Spring'], ['CUSTOM', 'Custom bezier']];
 const POSITIONS = ['CENTER', 'TOP_LEFT', 'TOP_CENTER', 'TOP_RIGHT', 'BOTTOM_LEFT', 'BOTTOM_CENTER', 'BOTTOM_RIGHT', 'BELOW_TRIGGER'];
@@ -67,6 +68,7 @@ function ActionEditor({ session, node, a, onChange, onRemove, ro, depth = 0 }: {
         <Select value={a.variableId} disabled={ro} aria-label="Variable" onChange={e => onChange({ ...a, variableId: e.target.value })}><option value="">Select variable…</option>{vars.map(v => <option key={v.id} value={v.id}>{doc.collections[v.collectionId]?.name}/{v.name} ({v.type.toLowerCase()})</option>)}</Select>
         <input value={a.expr} disabled={ro} aria-label="Expression" placeholder="e.g. {count} + 1  or  &quot;Hello&quot;" onChange={e => onChange({ ...a, expr: e.target.value })} />
         {exprState(a.expr) && <div className="error small">{exprState(a.expr)}</div>}</>;
+      case 'WHITEBOARD': return <BoardPicker a={a} ro={ro} onChange={onChange} />;
       case 'LINK': return <><input value={a.url} disabled={ro} aria-label="URL" onChange={e => onChange({ ...a, url: e.target.value })} />{!/^(https?:|mailto:)/i.test(a.url) && <div className="error small">Only http, https and mailto links are allowed</div>}</>;
       case 'CONDITIONAL': return (
         <div className="cond">
@@ -181,5 +183,23 @@ export function PrototypePanel({ session, onPresent }: { session: EditorSession;
         <div className="tip-body"><Icon n="play" size={22} /><span>Use the play button in the toolbar to play your prototype. If there are no connections, the play button can be used to play a presentation of your frames.</span></div>
       </section>}
     </div>
+  );
+}
+
+/** Pick which of your whiteboards a prototype step opens. */
+function BoardPicker({ a, ro, onChange }: { a: Extract<ProtoAction, { type: 'WHITEBOARD' }>; ro: boolean; onChange: (a: ProtoAction) => void }) {
+  const [boards, setBoards] = useState<{ id: string; name: string }[] | null>(null);
+  useEffect(() => { let alive = true; api.listFiles({ view: 'all' }).then(r => { if (alive) setBoards(r.files.filter(f => f.type === 'whiteboard' && !f.deletedAt).map(f => ({ id: f.id, name: f.name }))); }).catch(() => { if (alive) setBoards([]); }); return () => { alive = false; }; }, []);
+  const known = boards?.some(b => b.id === a.fileId);
+  return (
+    <>
+      <Select value={a.fileId} disabled={ro} aria-label="Whiteboard to open" onChange={e => { const b = boards?.find(x => x.id === e.target.value); onChange({ ...a, fileId: e.target.value, fileName: b?.name ?? '' }); }}>
+        <option value="">{boards === null ? 'Loading whiteboards…' : boards.length ? 'Select a whiteboard…' : 'No whiteboards yet'}</option>
+        {a.fileId && boards && !known && <option value={a.fileId}>{a.fileName || 'Whiteboard'} (not found)</option>}
+        {(boards ?? []).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+      </Select>
+      {!a.fileId && boards?.length === 0 && <div className="muted small">Create a whiteboard on the dashboard first.</div>}
+      <div className="muted small">In the prototype this opens the board to look around (drag to pan, wheel to zoom), with a button to open it for editing.</div>
+    </>
   );
 }

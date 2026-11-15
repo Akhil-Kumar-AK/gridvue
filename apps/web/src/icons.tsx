@@ -30,6 +30,8 @@ export const I = {
   frame: ic(<><path d="M8.5 3v18M15.5 3v18" />{t(<path d="M3 8.5h18M3 15.5h18" />)}</>),
   section: ic(<><rect x="3.500" y="4.500" width="17" height="15" rx="3.500" /><path d="M3.500 9.500h9.200v-5" /></>),
   whiteboard: ic(<><path d="M6 4h12a2 2 0 012 2v8l-6 6H6a2 2 0 01-2-2V6a2 2 0 012-2z" /><path d="M20 14h-4a2 2 0 00-2 2v4" /><path d="M8 9h8M8 13h3.500" /></>),
+  external: ic(<><path d="M14 4h6v6" /><path d="M20 4l-9 9" /><path d="M18 14v4a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2h4" /></>),
+  device: ic(<><rect x="4.500" y="5" width="15" height="10.500" rx="2" /><path d="M2.500 19h19" /></>),
   rect: ic(<rect x="3.500" y="5.500" width="17" height="13" rx="3" />),
   ellipse: ic(<><circle cx="10.500" cy="13.500" r="6.500" />{t(<path d="M14 4.200A7 7 0 0120 10.500" />)}</>),
   line: ic(<><path d="M7 17L17 7" />{t(<><circle cx="5" cy="19" r="1.600" /><circle cx="19" cy="5" r="1.600" /></>)}</>),

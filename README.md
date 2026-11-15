@@ -16,7 +16,7 @@ An open-source, browser-based design tool: a **design editor**, a **FigJam-style
 
 - **Design editor** – frames, shapes, pen and pencil, boolean operations, masks, text with a full typography panel, auto layout, components and variants, variables and design tokens, styles, export to PNG, JPG and WebP at several scales.
 - **Whiteboards inside designs** – insert a whiteboard card into a design file (shape menu → Whiteboard…). Select the card and the real whiteboard is live inside it: click, draw, add notes, zoom and drag, and resize the card like any layer. Drag items off the board onto the design to turn them into editable layers (stickies, text, shapes, drawings, connectors, tables, code blocks, link cards, stamps and timers all become real frames, text and vector layers; only photos stay images). Unselected cards show the board drawn in its own whiteboard style.
-- **Prototyping** – link frames, set transitions, present on device frames, share a play link.
+- **Prototyping** – link frames, set transitions, present on device frames, share a play link. An interaction can also **open one of your whiteboards** (Prototype tab → add interaction → action *Open whiteboard*, on click, hover or any other trigger): the player shows the board to pan and zoom, with a button to open it for editing.
 - **Whiteboard** – sticky notes, shapes and connectors, text, sections, pen / marker / highlighter, stamps and emoji, tables, code blocks, images, link cards, timer, voting, comments, templates, PNG export.
 - **Design systems** – reusable component libraries you can publish and use from other files.
 - **Import / export** – paste layers from Figma, import `.fig`, `.xd` and native `.layr` files; export `.layr`, `.fig` and `.xd`.
@@ -32,7 +32,19 @@ Brainstorm and design in the same place:
 4. **Drag items off the board onto the design** (or press *Send selection to design*). They arrive as editable design layers: stickies, text, shapes, drawings, connectors, tables, code blocks, link cards, stamps and timers become frames, text and vector paths you can restyle; photos stay image layers. The board keeps its own copy.
 5. Click elsewhere to close the live board; it saves automatically and the card updates.
 
-Limits: one card is live at a time, copies in the design are not kept in sync with the board, and prototype links ignore the card. See [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
+Limits: one card is live at a time and copies in the design are not kept in sync with the board. To link a prototype to a board, use the *Open whiteboard* action (next section). Select a frame before inserting a card and it lands inside that frame, so prototypes can include it. See [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
+
+### Open a whiteboard from a prototype
+
+Link a screen to a whiteboard the same way you link screens to each other:
+
+1. In a design file, put your screens in top-level frames (a prototype plays frames; a layer loose on the page is not a screen).
+2. Open the **Prototype** tab, select the layer people will interact with (a button, a card, a whiteboard card) and press **+** next to *Interactions*.
+3. Pick a trigger: *On click / tap*, *While hovering*, *Mouse enter*, *After delay*, a key press and so on.
+4. Press **+ Add action**, choose **Open whiteboard**, then pick one of the whiteboards you already made.
+5. Press **Present prototype**. When the trigger fires, the board opens in the player: drag to pan, wheel to zoom, **Open whiteboard** to edit it in its own tab, **Back to prototype** to carry on.
+
+The player's top bar groups its controls with icons: Close, the flow picker, previous screen and Restart, Hotspots and Fit/100%, the device frame and Open in new tab.
 
 Details and honest gaps are listed in [FEATURE_MATRIX.md](FEATURE_MATRIX.md) and [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
 

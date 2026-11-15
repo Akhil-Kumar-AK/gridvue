@@ -93,6 +93,7 @@ export function newAction(type: ProtoAction['type'], to = ''): ProtoAction {
     case 'BACK': return { type, anim };
     case 'SCROLL_TO': return { type, to, anim: { type: 'INSTANT', easing: 'EASE_OUT', duration: 300 } };
     case 'LINK': return { type, url: 'https://' };
+    case 'WHITEBOARD': return { type, fileId: '', fileName: '' };
     case 'CHANGE_TO': return { type, to, anim: { type: 'SMART_ANIMATE', easing: 'EASE_OUT', duration: 200 } };
     case 'SET_VAR': return { type, variableId: to, expr: '' };
     case 'CONDITIONAL': return { type, branches: [{ cond: 'true', actions: [] }], otherwise: [] };
@@ -143,6 +144,7 @@ export type Transition =
   | { kind: 'scroll'; frame: string; from: Pt; to: Pt; anim: Animation }
   | { kind: 'change'; frame: string; anim: Animation; before: DocumentData }
   | { kind: 'link'; url: string }
+  | { kind: 'whiteboard'; fileId: string; fileName: string }
   | { kind: 'error'; message: string };
 
 export function reverseAnim(a: Animation): Animation {
@@ -296,6 +298,7 @@ export class PrototypeRuntime {
         this.scroll[f] = to;
         return [{ kind: 'scroll', frame: f, from, to, anim: a.anim }];
       }
+      case 'WHITEBOARD': return a.fileId ? [{ kind: 'whiteboard', fileId: a.fileId, fileName: a.fileName }] : [{ kind: 'error', message: 'Pick a whiteboard for this interaction' }];
       case 'LINK': return /^(https?:|mailto:)/i.test(a.url) ? [{ kind: 'link', url: a.url }] : [{ kind: 'error', message: `Blocked link "${a.url}" (only http, https and mailto are allowed)` }];
       case 'CHANGE_TO': {
         const inst = d.nodes[src]; const to = need(a.to, 'component');

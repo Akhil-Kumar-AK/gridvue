@@ -93,3 +93,27 @@ test('a whiteboard card in a design file is live, resizable, and its items can b
   await expect(live).toHaveCount(0);
   await expect.poll(async () => { const r = await (await page.request.get(`/api/files/${boardId}`)).json(); return Object.values(r.document.items).filter((i: any) => i.kind === 'sticky').length; }, { timeout: 10_000 }).toBe(2);
 });
+
+test('presenting: a whiteboard card on the bare page is explained; inside a frame it plays with a populated flow picker', async ({ page }) => {
+  await signup(page);
+  await page.getByRole('button', { name: 'New whiteboard' }).first().click();
+  await expect(page.getByTestId('jam-canvas')).toBeVisible();
+  await page.getByRole('tablist', { name: 'Open files' }).getByRole('button', { name: 'Home' }).click();
+  await newFile(page);
+  const insert = async () => { await page.getByRole('button', { name: 'shape tools' }).click(); await page.getByRole('menuitem', { name: 'Whiteboard…' }).click(); await page.getByRole('menuitem', { name: 'Untitled whiteboard' }).click(); };
+  // 1) a card straight on the page is not a screen: no empty player, a clear message instead
+  await insert();
+  await expect.poll(async () => (await nodesOf(page, 'EMBED')).length).toBe(1);
+  await page.getByRole('button', { name: 'Present prototype' }).click();
+  await expect(page.getByTestId('player-canvas')).toHaveCount(0);
+  await expect(page.getByText('Prototypes play frames').first()).toBeVisible();
+  // 2) put a frame on the page, select it and add the card: it lands inside the frame and plays
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('f'); const cb = (await page.getByTestId('design-canvas').boundingBox())!;
+  await page.mouse.move(cb.x + 40, cb.y + 700); await page.mouse.down(); await page.mouse.move(cb.x + 420, cb.y + 830, { steps: 5 }); await page.mouse.up();
+  await insert();
+  await expect.poll(async () => { const [e] = (await nodesOf(page, 'EMBED')).slice(-1); const p = await page.evaluate(id => (window as any).__layr.store.doc.nodes[(window as any).__layr.store.doc.nodes[id].parent].type, e.id); return p; }).toBe('FRAME');
+  await page.getByRole('button', { name: 'Present prototype' }).click();
+  await expect(page.getByTestId('player-canvas')).toBeVisible();
+  await expect(page.locator('.pb-field .sel').first()).not.toHaveText('');
+});

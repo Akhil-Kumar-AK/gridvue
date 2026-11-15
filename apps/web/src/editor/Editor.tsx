@@ -132,7 +132,7 @@ function EditorShell({ session, onExit }: { session: EditorSession; onExit: () =
   useEffect(() => { api.me().then(r => set({ userName: r.user.name })).catch(() => {}); }, []);
   const present = () => {
     const start = pickStart(store.doc, ui.pageId, ui.selection);
-    if (!start) return useEditor.getState().toast('Add a top-level frame to present', 'error');
+    if (!start) return useEditor.getState().toast('Prototypes play frames: put your layers (including whiteboard cards) inside a top-level frame to present', 'error');
     void session.saveNow();
     set({ playing: start });
   };
