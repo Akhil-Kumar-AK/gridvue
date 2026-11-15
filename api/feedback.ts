@@ -4,7 +4,7 @@
  * Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM and FEEDBACK_TO in the Vercel project's environment variables.
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { mailConfig, sendMail, type Attachment } from '../apps/server/src/mailer';
+import { mailConfig, sendMail, type Attachment } from '../apps/server/src/mailer.js';
 
 type Req = IncomingMessage & { body?: any };
 const send = (res: ServerResponse, status: number, body: unknown) => { res.statusCode = status; res.setHeader('content-type', 'application/json'); res.end(JSON.stringify(body)); };
