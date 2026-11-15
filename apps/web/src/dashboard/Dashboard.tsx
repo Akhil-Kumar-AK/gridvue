@@ -6,6 +6,7 @@ import { useEditor, storage, type MenuItem } from '../editor/state';
 import { BrandMark, Icon, type IconName } from '../icons';
 import { JIcon } from '../jam/icons';
 import { HomeHero } from './HomeHero';
+import { ApiImg } from '../net';
 import { HomeSidebar } from './HomeSidebar';
 import { Select } from '../ui/Select';
 import { IMPORT_ACCEPT, createFromImport, importDesignFile } from '../interchange';
@@ -84,7 +85,7 @@ export function Dashboard({ user, onLogout, topbar }: { user: User; onLogout: ()
   const card = (f: FileMeta) => (
     <article key={f.id} className="hcard" onDoubleClick={() => !f.deletedAt && open(f.id)}>
       <div className="hthumb" onClick={() => !f.deletedAt && open(f.id)}>
-        {f.hasThumbnail ? <img src={`/api/files/${f.id}/thumbnail?v=${f.updatedAt}`} alt="" loading="lazy" /> : <span className="hph">{f.type === 'designsystem' && <Icon n="components" size={34} />}</span>}
+        {f.hasThumbnail ? <ApiImg path={`/api/files/${f.id}/thumbnail?v=${f.updatedAt}`} loading="lazy" /> : <span className="hph">{f.type === 'designsystem' && <Icon n="components" size={34} />}</span>}
         <span className={'tchip ' + (f.type === 'whiteboard' ? 'wb' : f.type === 'designsystem' ? 'sys' : 'des')}>{f.type === 'whiteboard' ? <JIcon n="sticky" size={12} /> : f.type === 'designsystem' ? <Icon n="components" size={12} /> : <Icon n="frame" size={12} />}{f.type === 'whiteboard' ? 'Whiteboard' : f.type === 'designsystem' ? 'Design system' : 'Design'}</span>
         {f.favorite && <span className="fav-flag" title="Starred"><Icon n="starFill" size={13} /></span>}
         <span className="hover-actions" onPointerDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
@@ -156,7 +157,7 @@ export function Dashboard({ user, onLogout, topbar }: { user: User; onLogout: ()
             <div className="lrow head" role="row"><span /><span>Name</span><span>Location</span><span>Edited</span><span /></div>
             {shown.map(f => (
               <div key={f.id} className="lrow" role="row" onDoubleClick={() => !f.deletedAt && open(f.id)}>
-                <span className="lthumb" onClick={() => !f.deletedAt && open(f.id)}>{f.hasThumbnail ? <img src={`/api/files/${f.id}/thumbnail?v=${f.updatedAt}`} alt="" loading="lazy" /> : f.type === 'whiteboard' ? <JIcon n="sticky" size={18} /> : f.type === 'designsystem' ? <Icon n="components" size={18} /> : <Icon n="frame" size={18} />}</span>
+                <span className="lthumb" onClick={() => !f.deletedAt && open(f.id)}>{f.hasThumbnail ? <ApiImg path={`/api/files/${f.id}/thumbnail?v=${f.updatedAt}`} loading="lazy" /> : f.type === 'whiteboard' ? <JIcon n="sticky" size={18} /> : f.type === 'designsystem' ? <Icon n="components" size={18} /> : <Icon n="frame" size={18} />}</span>
                 <span className="lname2" onClick={() => !f.deletedAt && open(f.id)}>{f.name}{f.role !== 'owner' && <i className="badge inline">{f.role}</i>}</span>
                 <span className="muted">{projName(f.projectId)}</span>
                 <span className="muted">{ago(f.updatedAt)}</span>

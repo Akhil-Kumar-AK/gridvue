@@ -3,6 +3,7 @@ import { api, type User } from '../api';
 import { BrandMark, Icon } from '../icons';
 import { JIcon } from '../jam/icons';
 import { useEditor, storage } from '../editor/state';
+import { DEMO } from '../net';
 
 const Cursor = ({ color }: { color: string }) => <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3l15 7-6.500 2.200L10 19z" fill={color} stroke="#fff" strokeWidth="1.600" strokeLinejoin="round" /></svg>;
 
@@ -28,6 +29,11 @@ function Stage() {
     </div>
   );
 }
+
+export const REPO_URL = 'https://github.com/Akhil-Kumar-AK/gridvue';
+/** Shown on the hosted demo (and any non-local deployment), not when you run the app on your own machine. */
+const showDemoNote = DEMO || !['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+const GitHubMark = () => <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" /></svg>;
 
 const loadNames = (): string[] => { try { const v = JSON.parse(storage.get('layr:names', '[]')); return Array.isArray(v) ? v.filter((x: unknown) => typeof x === 'string').slice(0, 4) : []; } catch { return []; } };
 
@@ -74,11 +80,19 @@ export function AuthScreen({ onAuth }: { onAuth: (u: User) => void }) {
             {error && <div className="error" role="alert">{error}</div>}
             <button className="gv-go" disabled={busy || !name.trim()}>{busy ? 'Opening…' : 'Continue'}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></button>
             {recent.length > 0 && <div className="gv-recent"><span>Continue as</span>{recent.map(n => <button type="button" key={n} onClick={() => void enter(n)} disabled={busy}><i>{n[0]?.toUpperCase()}</i>{n}</button>)}</div>}
-            <p className="gv-note">No password: your name opens your own files on this server. Enter the same name again to come back to them.</p>
+            <p className="gv-note">{DEMO ? 'Demo mode: nothing is uploaded. Your files stay in this browser only (clearing site data removes them) and nobody else can see them.' : 'No password: your name opens your own files on this server. Enter the same name again to come back to them.'}</p>
           </form>
+          {showDemoNote && <aside className="gv-demo" aria-label="About this demo">
+            <div className="gv-demo-ic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 7.800h.01" /></svg></div>
+            <div className="gv-demo-body">
+              <b>This is a demo, for testing only</b>
+              <p>Gridvue will go live based on users’ responses and feedback. Some features will not work properly without a server. To try the full application, open the GitHub repository, download it and run it locally. It works fully there.</p>
+              <a className="gv-demo-btn" href={REPO_URL} target="_blank" rel="noopener noreferrer"><GitHubMark />Open the GitHub repository</a>
+            </div>
+          </aside>}
           <ul className="gv-feats">{feats.map(f => <li key={f.t}><span className="ic">{f.icon}</span><b>{f.t}</b><span>{f.d}</span></li>)}</ul>
         </div>
-        <div className="gv-legal">Gridvue · local build</div>
+        <div className="gv-legal">{DEMO ? 'Gridvue · demo build' : 'Gridvue · local build'}</div>
       </main>
     </div>
   );

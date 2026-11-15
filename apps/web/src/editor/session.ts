@@ -5,6 +5,7 @@ import {
 import { migrate } from '@layr/core';
 import { ApiError, api, buildNativeFile, download, type FileMeta } from '../api';
 import { ImageCache } from '../engine/images';
+import { apiFetch } from '../net';
 import { autoTextSize } from '../engine/text';
 import { decodeFigmaBuffer, figmaBufferFromHtml } from '../figma/decode';
 import { convertFigma } from '../figma/convert';
@@ -312,7 +313,7 @@ export class EditorSession {
   }
 
   private assetBytes = async (id: string) => {
-    const r = await fetch(`/api/assets/${id}`);
+    const r = await apiFetch(`/api/assets/${id}`);
     if (!r.ok) throw new Error(`Could not fetch asset ${id}`);
     return { bytes: new Uint8Array(await r.arrayBuffer()), mime: r.headers.get('content-type') ?? 'application/octet-stream' };
   };

@@ -1,4 +1,5 @@
 import type { BoardData, DocumentData, NativeFile } from '@layr/core';
+import { apiFetch } from './net';
 
 export interface User { id: string; email: string; name: string }
 export interface FileMeta {
@@ -13,7 +14,7 @@ export class ApiError extends Error { constructor(public status: number, message
 async function call<T>(method: string, path: string, body?: unknown, raw?: Blob | ArrayBuffer, extra: RequestInit = {}): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(path, { method, credentials: 'same-origin', headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined, body: raw ?? (body !== undefined ? JSON.stringify(body) : undefined), ...extra });
+    res = await apiFetch(path, { method, credentials: 'same-origin', headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined, body: raw ?? (body !== undefined ? JSON.stringify(body) : undefined), ...extra });
   } catch { throw new ApiError(0, 'Network error: cannot reach the server'); }
   const text = await res.text();
   let json: any = {};
@@ -54,7 +55,7 @@ export const api = {
 export async function buildNativeFile(file: FileMeta, doc: DocumentData): Promise<NativeFile> {
   const assets: NativeFile['assets'] = {};
   for (const id of Object.keys(doc.assets)) {
-    const r = await fetch(`/api/assets/${id}`);
+    const r = await apiFetch(`/api/assets/${id}`);
     if (!r.ok) throw new Error(`Could not fetch asset ${id} for export`);
     const buf = new Uint8Array(await r.arrayBuffer());
     let bin = ''; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));

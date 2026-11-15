@@ -77,11 +77,26 @@ Run it behind HTTPS and set `COOKIE_SECURE=1` if you expose it to other people. 
 
 A [`render.yaml`](render.yaml) is included for a free [Render](https://render.com) web service (New + → Blueprint → pick this repository). The free plan has a temporary disk, so saved files are wiped whenever the service sleeps, restarts or redeploys. Fine for trying it out with testers, not for keeping work.
 
+## Deploy the browser-only demo to Vercel (free, never sleeps)
+
+For testing with people there is a **demo build** that needs no server at all. The whole API runs inside the page and each visitor's files live in their own browser (IndexedDB): any name signs in, nobody can see anyone else's files, nothing is uploaded, and sharing is switched off. Clearing site data removes the files.
+
+1. Push this repository to GitHub.
+2. On [vercel.com](https://vercel.com) choose **Add New → Project** and import the repository. `vercel.json` already sets the install command, `npm run build:demo` and the output folder `apps/web/dist`, so you can accept the defaults.
+3. Deploy. Open the `*.vercel.app` address and type a name.
+
+Try it locally first: `npm run dev:demo` (live) or `npm run build:demo` then `npm run preview -w @layr/web`.
+
+**Feedback emails (optional).** The feedback button posts to a small Vercel function in `api/feedback.ts`. Add `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` and `FEEDBACK_TO` under **Project → Settings → Environment Variables**. Without them feedback is accepted but no email is sent. Screenshots are limited by Vercel's 4.5 MB request size.
+
+The full server version (shared files, saved on a server) is described above and in `SETUP.md`.
+
 ## Run the tests
 
 ```bash
 npm test                  # unit and API tests (fast)
 npx playwright test       # browser tests; needs Google Chrome, starts its own servers on ports 8788 and 5274
+npx playwright test -c playwright.demo.config.ts   # builds and tests the browser-only demo (no server)
 npm run typecheck         # TypeScript check across the repo
 ```
 

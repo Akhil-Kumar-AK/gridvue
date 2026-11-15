@@ -6,6 +6,7 @@ import { activeSession } from './session';
 import { useEditor } from './state';
 import { Select } from '../ui/Select';
 import { useDraggable } from '../ui/useDraggable';
+import { useObjectUrl } from '../net';
 import { askText, askConfirm } from '../ui/dialogs';
 import { ImagePanel, PatternPanel } from './FillPanels';
 
@@ -230,9 +231,10 @@ export function ColorPopover({ anchor, paint, onChange, onClose, gradients = tru
 /** Swatch button that opens the popover. */
 export function SwatchButton({ paint, onChange, gradients, bind, showOpacity, disabled, className, fillTypes, blend }: { paint: PickerPaint; onChange: (p: PickerPaint) => void; gradients?: boolean; bind?: Props['bind']; showOpacity?: boolean; disabled?: boolean; className?: string; fillTypes?: boolean; blend?: boolean }) {
   const [open, setOpen] = useState<DOMRect | null>(null);
+  const imgUrl = useObjectUrl(paint.type === 'IMAGE' ? `/api/assets/${paint.assetId}` : null);
   const bg = paint.type === 'SOLID' ? paint.color
     : paint.type === 'LINEAR' ? `linear-gradient(${paint.angle}deg, ${paint.stops.map(s => s.color).join(', ')})`
-    : paint.type === 'IMAGE' ? `center / cover url(/api/assets/${paint.assetId}), ${checker}`
+    : paint.type === 'IMAGE' ? (imgUrl ? `center / cover url(${imgUrl}), ${checker}` : checker)
     : `radial-gradient(circle, #8b8ff7 1.6px, transparent 1.8px) 0 0 / 6px 6px, #3a3a3d`;
   return <>
     <button type="button" className={'swatchbtn ' + (className ?? '')} disabled={disabled} aria-label="Open color picker" title="Pick a colour" style={{ background: bg }} onClick={e => setOpen(e.currentTarget.getBoundingClientRect())} />

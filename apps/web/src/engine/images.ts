@@ -1,3 +1,5 @@
+import { objectUrl } from '../net';
+
 /** Loads image assets served by the API and caches decoded bitmaps. */
 export class ImageCache {
   private map = new Map<string, HTMLImageElement | 'loading' | 'error'>();
@@ -13,7 +15,7 @@ export class ImageCache {
     const img = new Image();
     img.onload = () => { this.map.set(assetId, img); this.onLoad(); };
     img.onerror = () => { this.map.set(assetId, 'error'); };
-    img.src = `/api/assets/${assetId}`;
+    void objectUrl(`/api/assets/${assetId}`).then(u => { if (u) img.src = u; else this.map.set(assetId, 'error'); });
   }
   /** Seed from an already-decoded image (e.g. right after upload). */
   put(assetId: string, img: HTMLImageElement) { this.map.set(assetId, img); }

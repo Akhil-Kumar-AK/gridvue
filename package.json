@@ -18,7 +18,9 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "seed": "npm run seed -w @layr/server",
-    "bench": "tsx scripts/bench.ts"
+    "bench": "tsx scripts/bench.ts",
+    "build:demo": "npm run build -w @layr/web -- --mode demo",
+    "dev:demo": "npm run dev -w @layr/web -- --mode demo"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",

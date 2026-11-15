@@ -1551,3 +1551,7 @@ select.sizing.chevsel { background: transparent url("data:image/svg+xml,%3Csvg x
 .menu.choice { z-index: 600; }
 /* sub-panels opened from the properties panel can be dragged by their header */
 .cp-head { cursor: grab; user-select: none; } .cp-head:active { cursor: grabbing; } .cp-head button { cursor: pointer; }
+/* demo notice on the sign-in page */
+.gv-demo { display: flex; gap: 14px; padding: 16px 18px; border-radius: 16px; border: 1px solid rgba(99,102,241,.45); background: rgba(79,70,229,.1); } .gv-demo-ic { flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: #818cf8; background: rgba(79,70,229,.2); } .gv-demo-body { display: grid; gap: 6px; min-width: 0; } .gv-demo-body b { font-size: 13.5px; color: var(--fg); } .gv-demo-body p { margin: 0; font-size: 12px; line-height: 1.55; color: var(--fg2); }
+.gv-demo-btn { width: fit-content; margin-top: 4px; display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px; border-radius: 10px; background: var(--fg); color: var(--bg); font-size: 12.5px; font-weight: 600; text-decoration: none; transition: transform .12s, opacity .12s; } .gv-demo-btn:hover { transform: translateY(-1px); opacity: .9; }
+.gv-right { overflow-y: auto; } .gv-mid { padding: 6px 0; }
