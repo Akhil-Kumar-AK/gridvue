@@ -4,6 +4,14 @@ An open-source, browser-based design tool: a **design editor**, a **FigJam-style
 
 > **Status: early / for testing.** Sign-in only asks for a name (no password). Use it locally or share a link only with people you trust. See [Known limitations](KNOWN_LIMITATIONS.md).
 
+<p align="center">
+  <a href="docs/video/gridvue-demo-1920x1080.mp4" title="Watch the 30-second demo">
+    <img src="docs/video/gridvue-video-thumbnail-1920x1080.png" alt="Gridvue: a 30-second tour. Click to watch the demo video." width="860">
+  </a>
+  <br>
+  <sub>▶ Click the image to watch the 30-second tour</sub>
+</p>
+
 ## What's inside
 
 - **Design editor** – frames, shapes, pen and pencil, boolean operations, masks, text with a full typography panel, auto layout, components and variants, variables and design tokens, styles, export to PNG, JPG and WebP at several scales.
