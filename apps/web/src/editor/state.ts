@@ -13,7 +13,7 @@ export interface MenuItem { label: string; icon?: string; shortcut?: string; dis
 
 interface EditorUI {
   tool: Tool; selection: string[]; camera: Camera; pageId: string; hoverId: string | null; hoverFrom: 'canvas' | 'panel' | null;
-  editingTextId: string | null; guides: Guide[]; marquee: Rect | null; leftTab: 'file' | 'assets' | 'variables'; userName: string; varsOpen: boolean; vectorEdit: string | null; vecSel: number[]; renaming: string | null; leftCollapsed: boolean; mode: 'design' | 'prototype'; playing: string | null;
+  editingTextId: string | null; guides: Guide[]; marquee: Rect | null; leftTab: 'file' | 'assets' | 'variables'; userName: string; varsOpen: boolean; vectorEdit: string | null; vecSel: number[]; renaming: string | null; /** true while the pointer focus is inside a live whiteboard card (the board then owns the keyboard) */ embedFocus: boolean; leftCollapsed: boolean; mode: 'design' | 'prototype'; playing: string | null;
   saveStatus: SaveStatus; saveMessage: string; theme: 'light' | 'dark';
   leftWidth: number; rightWidth: number;
   toasts: Toast[]; menu: MenuState | null; paletteOpen: boolean; shareOpen: boolean; exportOpen: boolean;
@@ -34,7 +34,7 @@ let toastId = 1;
 
 export const useEditor = create<EditorUI>((set, get) => ({
   tool: 'select', selection: [], camera: { x: -100, y: -100, zoom: 1 }, pageId: '', hoverId: null, hoverFrom: null,
-  editingTextId: null, guides: [], marquee: null, leftTab: 'file', userName: '', varsOpen: false, vectorEdit: null, vecSel: [], renaming: null, leftCollapsed: ls.get('layr:leftCollapsed', '0') === '1', mode: 'design', playing: null,
+  editingTextId: null, guides: [], marquee: null, leftTab: 'file', userName: '', varsOpen: false, vectorEdit: null, vecSel: [], renaming: null, embedFocus: false, leftCollapsed: ls.get('layr:leftCollapsed', '0') === '1', mode: 'design', playing: null,
   saveStatus: 'saved', saveMessage: '', theme: (ls.get('layr:theme', 'dark') === 'light' ? 'light' : 'dark'), // dark is the default
   leftWidth: Number(ls.get('layr:left2', '290')), rightWidth: Number(ls.get('layr:right5', '241')),
   toasts: [], menu: null, paletteOpen: false, shareOpen: false, exportOpen: false,

@@ -345,6 +345,40 @@ function drawBoolean(c: CanvasRenderingContext2D, doc: DocumentData, n: SceneNod
   c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(off, 0, 0); c.restore();
 }
 
+/** Height of a whiteboard card's title bar (design units): big enough to read when the design is zoomed out. */
+export const embedBarHeight = (cardHeight: number) => Math.max(56, Math.min(96, cardHeight * 0.12));
+
+/** The card for an embedded whiteboard: a title bar plus the board itself, drawn in the whiteboard's own style (grid, colours, items). */
+function drawEmbed(c: CanvasRenderingContext2D, n: SceneNode, env: DrawEnv) {
+  const e = n.embed; if (!e) return;
+  const w = n.width, h = n.height, bar = embedBarHeight(h), dark = document.documentElement.dataset.theme === 'dark';
+  c.save(); shapePath(c, n); c.clip();
+  const bw = w, bh = h - bar;
+  const cv = env.images.boardCanvas(e.fileId, bw, bh, env.scale, dark);
+  if (cv) c.drawImage(cv, 0, bar, bw, bh);
+  else {
+    c.fillStyle = dark ? '#1b1b1d' : '#f4f4f5'; c.fillRect(0, bar, bw, bh);
+    c.fillStyle = '#9AA0B5'; c.font = `500 ${Math.round(bar * 0.3)}px Inter, Helvetica, Arial, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(env.images.boardFailed(e.fileId) ? 'This whiteboard is not available' : 'Loading whiteboard…', w / 2, bar + bh / 2);
+  }
+  if (cv && !(env.images.board(e.fileId)?.order.length)) {
+    c.fillStyle = '#9AA0B5'; c.font = `500 ${Math.round(bar * 0.3)}px Inter, Helvetica, Arial, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText('Empty whiteboard. Select the card to start adding.', w / 2, bar + bh / 2);
+  }
+  c.fillStyle = '#FFFFFF'; c.fillRect(0, 0, w, bar);
+  c.fillStyle = '#E6E8F0'; c.fillRect(0, bar - 1, w, 1);
+  const ic = bar * 0.5;
+  c.fillStyle = '#FDE68A'; c.beginPath(); c.roundRect(bar * 0.28, (bar - ic) / 2, ic, ic, ic * 0.22); c.fill();
+  c.fillStyle = '#92400E'; c.fillRect(bar * 0.28 + ic * 0.22, bar / 2 - ic * 0.14, ic * 0.56, ic * 0.1); c.fillRect(bar * 0.28 + ic * 0.22, bar / 2 + ic * 0.06, ic * 0.4, ic * 0.1);
+  const fs = Math.round(bar * 0.36);
+  c.fillStyle = '#111827'; c.font = `700 ${fs}px Inter, Helvetica, Arial, sans-serif`; c.textAlign = 'left'; c.textBaseline = 'middle';
+  const maxChars = Math.max(8, Math.floor((w - bar * 3.6) / (fs * 0.56)));
+  const label = e.fileName.length > maxChars ? e.fileName.slice(0, maxChars - 1) + '…' : e.fileName;
+  c.fillText(label, bar * 0.28 + ic + bar * 0.22, bar / 2 + 1);
+  c.fillStyle = '#6B7280'; c.font = `500 ${Math.round(bar * 0.3)}px Inter, Helvetica, Arial, sans-serif`; c.textAlign = 'right'; c.fillText('Whiteboard', w - bar * 0.3, bar / 2 + 1);
+  c.restore();
+}
+
 export function drawNode(c: CanvasRenderingContext2D, doc: DocumentData, id: string, env: DrawEnv, parentM: Mat) {
   const n = doc.nodes[id];
   if (!n.visible) return;
@@ -368,6 +402,7 @@ export function drawNode(c: CanvasRenderingContext2D, doc: DocumentData, id: str
   if (blur && blur.type === 'LAYER_BLUR') c.filter = `blur(${blur.radius * env.scale}px)`;
 
   if (n.type === 'TEXT') drawText(c, n, env);
+  else if (n.type === 'EMBED') { fillPaints(c, n, n.fills, env, true); drawEmbed(c, n, env); if (!env.noStroke) strokePaints(c, n, env); }
   else if (n.type !== 'GROUP') {
     if (n.type !== 'LINE') fillPaints(c, n, n.fills, env, true);
     if (!env.noStroke) strokePaints(c, n, env);

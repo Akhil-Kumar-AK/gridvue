@@ -1083,3 +1083,29 @@ describe('per-paint blend modes', () => {
     (s.doc.nodes[n.id].fills[0] as any).blendMode = 'NOPE'; expect(() => validateDoc(s.doc)).toThrow();
   });
 });
+
+describe('whiteboard embed layer', () => {
+  const withEmbed = (patch: Record<string, unknown> = {}) => {
+    const { store, page } = setup();
+    const n = defaultNode('EMBED', { name: 'Board', embed: { fileId: 'file_abc', fileName: 'Board', kind: 'whiteboard' }, ...patch });
+    addNode(store, n, page);
+    return { store, n };
+  };
+  it('accepts an embed that points at a whiteboard file', () => {
+    const { store } = withEmbed();
+    expect(() => validateDocument(store.doc)).not.toThrow();
+  });
+  it('rejects an embed without a target, with children, or an embed field on another layer', () => {
+    const a = withEmbed({ embed: undefined }); expect(() => validateDocument(a.store.doc)).toThrow(DocumentError);
+    const b = withEmbed({ embed: { fileId: '', fileName: 'x', kind: 'whiteboard' } }); expect(() => validateDocument(b.store.doc)).toThrow(DocumentError);
+    const c = withEmbed({ embed: { fileId: 'f', fileName: 'x', kind: 'slides' } }); expect(() => validateDocument(c.store.doc)).toThrow(DocumentError);
+    const { store, page } = setup(); addNode(store, defaultNode('RECT', { embed: { fileId: 'f', fileName: 'x', kind: 'whiteboard' } }), page);
+    expect(() => validateDocument(store.doc)).toThrow(DocumentError);
+  });
+  it('survives duplicate, undo and a JSON round trip', () => {
+    const { store, n } = withEmbed();
+    const [copy] = duplicate(store, [n.id]);
+    expect(store.doc.nodes[copy].embed?.fileId).toBe('file_abc');
+    expect(() => validateDocument(JSON.parse(JSON.stringify(store.doc)))).not.toThrow();
+  });
+});

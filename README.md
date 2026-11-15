@@ -15,11 +15,24 @@ An open-source, browser-based design tool: a **design editor**, a **FigJam-style
 ## What's inside
 
 - **Design editor** – frames, shapes, pen and pencil, boolean operations, masks, text with a full typography panel, auto layout, components and variants, variables and design tokens, styles, export to PNG, JPG and WebP at several scales.
+- **Whiteboards inside designs** – insert a whiteboard card into a design file (shape menu → Whiteboard…). Select the card and the real whiteboard is live inside it: click, draw, add notes, zoom and drag, and resize the card like any layer. Drag items off the board onto the design to turn them into editable layers (stickies, text, shapes, drawings, connectors, tables, code blocks, link cards, stamps and timers all become real frames, text and vector layers; only photos stay images). Unselected cards show the board drawn in its own whiteboard style.
 - **Prototyping** – link frames, set transitions, present on device frames, share a play link.
 - **Whiteboard** – sticky notes, shapes and connectors, text, sections, pen / marker / highlighter, stamps and emoji, tables, code blocks, images, link cards, timer, voting, comments, templates, PNG export.
 - **Design systems** – reusable component libraries you can publish and use from other files.
 - **Import / export** – paste layers from Figma, import `.fig`, `.xd` and native `.layr` files; export `.layr`, `.fig` and `.xd`.
 - **Dashboard** – all files in one place, filter by type, projects, starred files, light and dark themes.
+
+### Whiteboard inside a design file
+
+Brainstorm and design in the same place:
+
+1. Make a whiteboard (**New whiteboard** on the dashboard) and add a few notes.
+2. Open a design file and choose **Whiteboard…** from the shape menu in the bottom toolbar, then pick your board (or create a new one).
+3. The board appears as a card on the canvas, drawn in whiteboard style. **Select the card** and the real whiteboard is live inside it: click, add notes and shapes, draw, zoom and pan. Its toolbar follows the design's zoom. Move or resize the card like any layer.
+4. **Drag items off the board onto the design** (or press *Send selection to design*). They arrive as editable design layers: stickies, text, shapes, drawings, connectors, tables, code blocks, link cards, stamps and timers become frames, text and vector paths you can restyle; photos stay image layers. The board keeps its own copy.
+5. Click elsewhere to close the live board; it saves automatically and the card updates.
+
+Limits: one card is live at a time, copies in the design are not kept in sync with the board, and prototype links ignore the card. See [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
 
 Details and honest gaps are listed in [FEATURE_MATRIX.md](FEATURE_MATRIX.md) and [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
 

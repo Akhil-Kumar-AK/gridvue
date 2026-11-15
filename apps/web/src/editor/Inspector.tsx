@@ -277,6 +277,16 @@ export function Inspector({ session, ctrl, actions }: { session: EditorSession; 
         </div>
       </section>
 
+      {single?.type === 'EMBED' && single.embed && (
+        <Section title="Whiteboard">
+          <div className="grid2" style={{ gridTemplateColumns: '1fr' }}>
+            <div className="muted" style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={single.embed.fileName}>{single.embed.fileName}</div>
+            <button className="btn small" onClick={() => { location.hash = `#/file/${single.embed!.fileId}`; }}>Open in its own tab</button>
+            <div className="muted" style={{ fontSize: 12 }}>Work right inside the card: click, draw, zoom and drag. Resize the card from its corners. Drag items out of the board onto the design to turn them into editable layers.</div>
+          </div>
+        </Section>
+      )}
+
       <Section title="Layout">
         <div className="grid2">
           <NumberField label="X" value={x} disabled={ro || (parentLayout && !nodes.every(n => n.absolute))} title={parentLayout ? 'Position is controlled by the parent auto layout (use Absolute position to opt out)' : undefined} onCommit={setX} />

@@ -2,7 +2,7 @@
 export const SCHEMA_VERSION = 2; // v2 adds styles, variables and variable collections
 export const ROOT_ID = 'doc';
 
-export type NodeType = 'DOCUMENT' | 'PAGE' | 'FRAME' | 'GROUP' | 'RECT' | 'ELLIPSE' | 'LINE' | 'TEXT' | 'COMPONENT' | 'COMPONENT_SET' | 'INSTANCE' | 'VECTOR';
+export type NodeType = 'DOCUMENT' | 'PAGE' | 'FRAME' | 'GROUP' | 'RECT' | 'ELLIPSE' | 'LINE' | 'TEXT' | 'COMPONENT' | 'COMPONENT_SET' | 'INSTANCE' | 'VECTOR' | 'EMBED';
 export type BlendMode = 'NORMAL' | 'DARKEN' | 'MULTIPLY' | 'PLUS_DARKER' | 'COLOR_BURN' | 'LIGHTEN' | 'SCREEN' | 'PLUS_LIGHTER' | 'COLOR_DODGE' | 'OVERLAY' | 'SOFT_LIGHT' | 'HARD_LIGHT' | 'DIFFERENCE' | 'EXCLUSION' | 'HUE' | 'SATURATION' | 'COLOR' | 'LUMINOSITY';
 /** Blend modes in menu order, grouped the way design tools group them. */
 export const BLEND_GROUPS: BlendMode[][] = [['NORMAL'], ['DARKEN', 'MULTIPLY', 'PLUS_DARKER', 'COLOR_BURN'], ['LIGHTEN', 'SCREEN', 'PLUS_LIGHTER', 'COLOR_DODGE'], ['OVERLAY', 'SOFT_LIGHT', 'HARD_LIGHT'], ['DIFFERENCE', 'EXCLUSION'], ['HUE', 'SATURATION', 'COLOR', 'LUMINOSITY']];
@@ -112,9 +112,14 @@ export interface AutoLayout {
  *  - children are stored bottom -> top (last child paints on top).
  *  - LINE: width is its length, height is 0; only strokes render.
  */
+/** A live card on the canvas that shows another file (a whiteboard). Double-click opens it. */
+export interface EmbedRef { fileId: string; fileName: string; kind: 'whiteboard' }
+
 export interface SceneNode {
   id: string;
   type: NodeType;
+  /** only on EMBED nodes */
+  embed?: EmbedRef;
   name: string;
   parent: string | null;
   children: string[];
@@ -240,6 +245,7 @@ export function defaultNode(type: NodeType, patch: Partial<SceneNode> = {}): Sce
     clipsContent: false, effects: [], exportSettings: [],
   };
   if (type === 'FRAME' || type === 'COMPONENT' || type === 'COMPONENT_SET' || type === 'INSTANCE') { base.fills = [solid('#FFFFFF')]; base.clipsContent = true; base.width = 400; base.height = 300; }
+  if (type === 'EMBED') { base.fills = [solid('#FFFFFF')]; base.width = 640; base.height = 440; base.cornerRadius = 16; base.name = 'Whiteboard'; base.clipsContent = true; }
   if (type === 'RECT') base.fills = [solid('#D9D9D9')];
   if (type === 'ELLIPSE') base.fills = [solid('#D9D9D9')];
   if (type === 'LINE') { base.height = 0; base.strokes = [solid('#000000')]; base.strokeWeight = 2; base.strokeAlign = 'CENTER'; }

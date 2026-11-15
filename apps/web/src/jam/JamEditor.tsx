@@ -18,13 +18,14 @@ import { TmvChip, TmvPanel, stopMusic } from './JamTimer';
 
 const CLIP = 'layr-jam:';
 
-export function JamEditor({ file, role, board, onExit }: { file: FileMeta; role: FileMeta['role']; board: BoardData; onExit: () => void }) {
+export function JamEditor({ file, role, board, onExit, embedded = false, onClosed, onSession }: { file: FileMeta; role: FileMeta['role']; board: BoardData; onExit: () => void; onSession?: (s: JamSession) => void; /** shown inside a design file: the host owns menus, toasts and sharing */ embedded?: boolean; onClosed?: () => void }) {
   const session = useMemo(() => new JamSession(file, role, board), [file.id]);
-  useEffect(() => { api.me().then(r => useJam.getState().set({ me: { id: r.user.id, name: r.user.name } })).catch(() => {}); return () => { stopMusic(); void session.saveNow().finally(() => session.dispose()); }; }, [session]);
-  return <JamShell session={session} onExit={onExit} />;
+  useEffect(() => { api.me().then(r => useJam.getState().set({ me: { id: r.user.id, name: r.user.name } })).catch(() => {}); return () => { stopMusic(); void session.saveNow().finally(() => session.dispose()).finally(() => onClosed?.()); }; }, [session]);
+  useEffect(() => { onSession?.(session); }, [session]);
+  return <JamShell session={session} onExit={onExit} embedded={embedded} />;
 }
 
-function JamShell({ session, onExit }: { session: JamSession; onExit: () => void }) {
+function JamShell({ session, onExit, embedded = false }: { session: JamSession; onExit: () => void; embedded?: boolean }) {
   const store = session.store; useSyncExternalStore(store.subscribe, () => store.version);
   const ui = useJam(); const set = ui.set; const theme = useEditor(s => s.theme); const toast = useEditor(s => s.toast);
   const [capi, setApi] = useState<CanvasApi | null>(null); const apiRef = useRef<CanvasApi | null>(null); apiRef.current = capi;
@@ -65,7 +66,9 @@ function JamShell({ session, onExit }: { session: JamSession; onExit: () => void
   // ---------- keyboard ----------
   useEffect(() => {
     const editable = (t: EventTarget | null) => t instanceof HTMLElement && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
+    const mine = () => !embedded || useEditor.getState().embedFocus; // an embedded board only listens while you are working in it
     const down = (e: KeyboardEvent) => {
+      if (!mine()) return;
       const m = isMac ? e.metaKey : e.ctrlKey; const u = useJam.getState();
       if (editable(e.target)) return;
       if (e.code === 'Space') return;
@@ -99,10 +102,10 @@ function JamShell({ session, onExit }: { session: JamSession; onExit: () => void
       };
       if (tools[k]) { e.preventDefault(); tools[k](); }
     };
-    const onCopy = (e: ClipboardEvent) => { if (editable(e.target)) return; const ids = sel(); if (!ids.length) return; e.preventDefault(); const all = new Set(ids); for (const i of ids) if (store.board.items[i].kind === 'section') for (const c of Object.values(store.board.items)) if (c.parent === i) all.add(c.id); const payload = CLIP + JSON.stringify(JamStore.clone(store.board, [...all])); e.clipboardData?.setData('text/plain', payload); clipMem = payload; };
-    const onCut = (e: ClipboardEvent) => { if (editable(e.target) || readonly) return; onCopy(e); const ids = sel(); store.remove(ids.filter(i => !store.board.items[i]?.locked)); set({ selection: [] }); };
+    const onCopy = (e: ClipboardEvent) => { if (!mine() || editable(e.target)) return; const ids = sel(); if (!ids.length) return; e.preventDefault(); const all = new Set(ids); for (const i of ids) if (store.board.items[i].kind === 'section') for (const c of Object.values(store.board.items)) if (c.parent === i) all.add(c.id); const payload = CLIP + JSON.stringify(JamStore.clone(store.board, [...all])); e.clipboardData?.setData('text/plain', payload); clipMem = payload; };
+    const onCut = (e: ClipboardEvent) => { if (!mine() || editable(e.target) || readonly) return; onCopy(e); const ids = sel(); store.remove(ids.filter(i => !store.board.items[i]?.locked)); set({ selection: [] }); };
     const onPaste = (e: ClipboardEvent) => {
-      if (editable(e.target) || readonly) return; e.preventDefault();
+      if (!mine() || editable(e.target) || readonly) return; e.preventDefault();
       const img = [...(e.clipboardData?.files ?? [])].find(f => f.type.startsWith('image/')); if (img) { void capi?.insertImage(img); return; }
       const txt = e.clipboardData?.getData('text/plain') || clipMem; if (txt) pasteText(txt);
     };
@@ -158,8 +161,8 @@ function JamShell({ session, onExit }: { session: JamSession; onExit: () => void
   const open = (p: Panel) => set({ panel: ui.panel === p ? null : p });
 
   return (
-    <div className={'jam' + (readonly ? ' ro' : '')} onContextMenu={openMenu} data-testid="jam-editor">
-      <div className="jam-top">
+    <div className={'jam' + (readonly ? ' ro' : '') + (embedded ? ' embedded' : '')} onContextMenu={openMenu} data-testid="jam-editor">
+      {!embedded && <div className="jam-top">
         <div className="jam-chip left">
           <button className="jm-b" aria-label="Back to files" title="Back to files" onClick={onExit}><JIcon n="back2" size={18} /></button>
           <button className="jam-name" aria-label="Board name" title={session.role === 'owner' ? 'Rename' : session.file.name} onClick={rename}>{session.file.name}</button>
@@ -171,7 +174,7 @@ function JamShell({ session, onExit }: { session: JamSession; onExit: () => void
           <TmvChip open={ui.panel === 'tmv'} onClick={() => open('tmv')} />
           <button className="jm-b big" aria-label="Switch theme" title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} onClick={() => { const t = theme === 'dark' ? 'light' : 'dark'; useEditor.getState().set({ theme: t }); storage.set('layr:theme', t); }}><Icon n={theme === 'dark' ? 'sun' : 'moon'} size={19} /></button>
         </div>
-      </div>
+      </div>}
 
       <JamCanvas session={session} onApi={setApi} />
       <ContextBar store={store} api={capi} />
@@ -191,7 +194,7 @@ function JamShell({ session, onExit }: { session: JamSession; onExit: () => void
       {ui.panel === 'comments' && <CommentList store={store} capi={capi} />}
       {ui.panel === 'help' && <Help />}
       <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden onChange={e => { const f = e.target.files?.[0]; if (f) void capi?.insertImage(f); e.target.value = ''; }} />
-      <ShareDialog session={session as never} /><ContextMenu /><Toasts />
+      {!embedded && <><ShareDialog session={session as never} /><ContextMenu /><Toasts /></>}
     </div>
   );
 }

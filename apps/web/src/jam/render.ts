@@ -1,4 +1,4 @@
-import { SECTION_TITLE_H, SHAPE_POLY, boxOfPoints, centerOf, cornersOf, cubicAt, flattenRoute, itemBox, polyMid, rotateAround, routeConnector, sidePoint, strokePoints, tableSize, timerLeft, voteTotal, votesUsed, type BoardData, type Box, type JamItem, type Pt, type Side } from '@layr/core';
+import { selectionBox, SECTION_TITLE_H, SHAPE_POLY, boxOfPoints, centerOf, cornersOf, cubicAt, flattenRoute, itemBox, polyMid, rotateAround, routeConnector, sidePoint, strokePoints, tableSize, timerLeft, voteTotal, votesUsed, type BoardData, type Box, type JamItem, type Pt, type Side } from '@layr/core';
 
 export const INK = '#1e1e1e';
 export const FONT = 'Inter, -apple-system, "Segoe UI", system-ui, sans-serif';
@@ -329,6 +329,19 @@ export async function exportPng(board: BoardData, ids: string[] | null, dark: bo
   const sub = ids ? { ...board, order: board.order.filter(i => ids.includes(i)) } : board;
   drawBoard(cv.getContext('2d')!, { ...sub, grid: 'none' }, { x: x0, y: y0, zoom: 1 }, w, h, { dark, dpr: s, selection: new Set(), hover: null, editing: null, now: Date.now(), meId: '', chrome: false, marquee: null, guides: [], onImage: () => {}, connectHint: null, draft: null, hideEditingText: false });
   return new Promise(res => cv.toBlob(res, 'image/png'));
+}
+/** The camera the whiteboard opens with: the whole board framed with some room around it (same maths as the editor's Zoom to fit). */
+export function fitBoardCamera(board: BoardData, W: number, H: number): { x: number; y: number; zoom: number } {
+  const box = selectionBox(board, board.order);
+  if (!box) return { x: -W / 2, y: -H / 2, zoom: 1 };
+  const z = Math.max(0.05, Math.min(Math.min((W - 160) / Math.max(box.w, 1), (H - 220) / Math.max(box.h, 1), 1.5), 4));
+  return { zoom: z, x: box.x + box.w / 2 - W / 2 / z, y: box.y + box.h / 2 - H / 2 / z };
+}
+/** Draw a whole board (no editing chrome) onto a fresh canvas of w x h CSS pixels, at `dpr` device pixels per pixel. Used for whiteboard cards inside design files. */
+export function renderBoardCanvas(board: BoardData, w: number, h: number, dpr: number, dark: boolean, onImage: () => void): HTMLCanvasElement {
+  const cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(w * dpr)); cv.height = Math.max(1, Math.round(h * dpr));
+  drawBoard(cv.getContext('2d')!, board, fitBoardCamera(board, w, h), w, h, { dark, dpr, selection: new Set(), hover: null, editing: null, now: Date.now(), meId: '', chrome: false, marquee: null, guides: [], onImage, connectHint: null, draft: null, hideEditingText: false });
+  return cv;
 }
 export { boxOfPoints, votesUsed };
 

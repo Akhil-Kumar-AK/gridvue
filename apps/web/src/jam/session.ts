@@ -45,9 +45,9 @@ export class JamSession {
   async thumbnail() {
     try {
       if (!this.store.board.order.length) { await api.deleteThumbnail(this.file.id); return; } // emptied board: drop the stale preview
-      const b = await exportPng(this.store.board, null, false, 0.3, 480); if (b) await api.uploadThumbnail(this.file.id, b);
+      const b = await exportPng(this.store.board, null, false, 1, 960); if (b) await api.uploadThumbnail(this.file.id, b);
     } catch { /* best effort */ }
   }
-  dispose() { this.disposed = true; if (this.thumbTimer) { clearTimeout(this.thumbTimer); this.thumbTimer = null; void this.thumbnail(); } if (this.timer) clearTimeout(this.timer); window.removeEventListener('beforeunload', this.flushOnUnload); }
+  async dispose() { this.disposed = true; if (this.thumbTimer) { clearTimeout(this.thumbTimer); this.thumbTimer = null; await this.thumbnail(); } if (this.timer) clearTimeout(this.timer); window.removeEventListener('beforeunload', this.flushOnUnload); }
 }
 export const toast = (t: string, k?: 'info' | 'error') => useEditor.getState().toast(t, k);

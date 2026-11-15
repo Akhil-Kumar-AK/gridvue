@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'reac
 import { ApiError, api, buildNativeFile } from '../api';
 import { Canvas } from './Canvas';
 import { LeftPanel } from './Layers';
+import { EmbedEditor } from './EmbedEditor';
 import { Dock } from './Dock';
 import { VariablesPage } from './Variables';
 import { PrototypePanel } from './PrototypePanel';
@@ -79,6 +80,7 @@ function EditorShell({ session, onExit }: { session: EditorSession; onExit: () =
     const editable = (t: EventTarget | null) => t instanceof HTMLElement && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
     const down = (e: KeyboardEvent) => {
       if (useEditor.getState().playing) return; // the player owns the keyboard while presenting
+      if (useEditor.getState().embedFocus) return; // so does a live whiteboard card while you work inside it
       const c = ctrlRef.current;
       const m = isMac ? e.metaKey : e.ctrlKey;
       if (m && !e.altKey && !e.shiftKey && (e.key === 'k' || e.key === '/')) { e.preventDefault(); set({ paletteOpen: !useEditor.getState().paletteOpen }); return; }
@@ -104,7 +106,7 @@ function EditorShell({ session, onExit }: { session: EditorSession; onExit: () =
     };
     const up = (e: KeyboardEvent) => { if (e.code === 'Space') ctrlRef.current?.setSpace(false); };
     const paste = (e: ClipboardEvent) => {
-      if (editable(e.target)) return;
+      if (editable(e.target) || useEditor.getState().embedFocus) return;
       const html = e.clipboardData?.getData('text/html');
       if (html && session.pasteFigma(html)) { e.preventDefault(); return; }
       const f = [...(e.clipboardData?.files ?? [])].find(x => x.type.startsWith('image/'));
@@ -151,6 +153,7 @@ function EditorShell({ session, onExit }: { session: EditorSession; onExit: () =
           <CanvasTopBar session={session} actions={actions} ctrl={ctrl} />
           <TextEditor session={session} ctrl={ctrl} /><FrameRename session={session} ctrl={ctrl} />
           <Dock session={session} ctrl={ctrl} onPickImage={() => fileInput.current?.click()} />
+          <EmbedEditor session={session} />
           <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden onChange={e => { const f = e.target.files?.[0]; if (f) void session.insertImage(f); e.target.value = ''; }} />
         </main>
         <div className="resizer" style={ui.leftTab === 'variables' ? { display: 'none' } : undefined} onPointerDown={startResize('right')} role="separator" aria-orientation="vertical" />

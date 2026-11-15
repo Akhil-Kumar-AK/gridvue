@@ -4,6 +4,7 @@ import { PenArt, BrushArt, PencilArt } from './DrawArt';
 import { useEditor, type Tool, type DrawStyle, type VecTool } from './state';
 import { togglePathClosed, deletePoints, setVectorPath } from '@layr/core';
 import { Icon, type IconName } from '../icons';
+import { api } from '../api';
 import type { CanvasController } from './controller';
 import type { EditorSession } from './session';
 
@@ -99,10 +100,26 @@ export function Dock({ session, ctrl, onPickImage }: { session: EditorSession; c
   const edit = session.canEdit && !proto;
   useEffect(() => { if (!open) return; const c = (e: PointerEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(null); }; window.addEventListener('pointerdown', c); return () => window.removeEventListener('pointerdown', c); }, [open]);
 
+  /** List the user's whiteboards (and a "new whiteboard" option) in a menu above the dock. */
+  const pickWhiteboard = async () => {
+    const ui = useEditor.getState();
+    try {
+      const { files } = await api.listFiles({ view: 'all' });
+      const boards = files.filter(f => f.type === 'whiteboard' && !f.deletedAt);
+      const r = ref.current?.getBoundingClientRect();
+      const items = [
+        { label: 'New whiteboard', run: async () => { try { const b = await api.createFile({ name: 'Whiteboard', type: 'whiteboard' }); session.insertWhiteboard({ id: b.file.id, name: b.file.name }); } catch (e) { ui.toast((e as Error).message, 'error'); } } },
+        ...(boards.length ? [{ label: '', separator: true }] : []),
+        ...boards.slice(0, 12).map(b => ({ label: b.name, run: () => session.insertWhiteboard({ id: b.id, name: b.name }) })),
+      ];
+      ui.set({ menu: { x: Math.max(8, (r?.left ?? 200) + 40), y: Math.max(8, (r?.top ?? 400) - items.length * 34 - 24), items } });
+    } catch (e) { ui.toast((e as Error).message, 'error'); }
+  };
+
   const groups: Group[] = [
     { id: 'move', items: [{ id: 'select', label: 'Move', icon: 'move', key: 'V', tool: 'select' }] },
     { id: 'frame', items: [{ id: 'frame', label: 'Frame', icon: 'frame', key: 'F', tool: 'frame' }, { id: 'section', label: 'Section', icon: 'section', tool: 'section' }] },
-    { id: 'shape', items: [{ id: 'rect', label: 'Rectangle', icon: 'rect', key: 'R', tool: 'rect' }, { id: 'line', label: 'Line', icon: 'line', key: 'L', tool: 'line' }, { id: 'ellipse', label: 'Ellipse', icon: 'ellipse', key: 'O', tool: 'ellipse' }, { id: 'arrow', label: 'Arrow', icon: 'arrow', key: '⇧L', tool: 'arrow' }, { id: 'star', label: 'Star', icon: 'star', tool: 'star' }, { id: 'polygon', label: 'Polygon', icon: 'polygon', tool: 'polygon' }, { id: 'image', label: 'Image…', icon: 'image', key: '⇧⌘K', run: onPickImage }] },
+    { id: 'shape', items: [{ id: 'rect', label: 'Rectangle', icon: 'rect', key: 'R', tool: 'rect' }, { id: 'line', label: 'Line', icon: 'line', key: 'L', tool: 'line' }, { id: 'ellipse', label: 'Ellipse', icon: 'ellipse', key: 'O', tool: 'ellipse' }, { id: 'arrow', label: 'Arrow', icon: 'arrow', key: '⇧L', tool: 'arrow' }, { id: 'star', label: 'Star', icon: 'star', tool: 'star' }, { id: 'polygon', label: 'Polygon', icon: 'polygon', tool: 'polygon' }, { id: 'image', label: 'Image…', icon: 'image', key: '⇧⌘K', run: onPickImage }, { id: 'whiteboard', label: 'Whiteboard…', icon: 'whiteboard', run: () => void pickWhiteboard() }] },
     { id: 'pen', items: [{ id: 'pen', label: 'Pen', icon: 'pen', key: 'P', tool: 'pen' }, { id: 'pencil', label: 'Pencil', icon: 'pencil', key: '⇧P', tool: 'pencil' }] },
     { id: 'text', items: [{ id: 'text', label: 'Text', icon: 'text', key: 'T', tool: 'text' }, { id: 'textpath', label: 'Text on path', icon: 'textPath', tool: 'textpath' }] },
   ];

@@ -23,7 +23,7 @@ export function migrate(raw: any): DocumentData {
 }
 
 const NUM_FIELDS = ['x', 'y', 'width', 'height', 'rotation', 'opacity', 'strokeWeight', 'cornerRadius'] as const;
-const TYPES = new Set(['DOCUMENT', 'PAGE', 'FRAME', 'GROUP', 'RECT', 'ELLIPSE', 'LINE', 'TEXT', 'COMPONENT', 'COMPONENT_SET', 'INSTANCE', 'VECTOR']);
+const TYPES = new Set(['DOCUMENT', 'PAGE', 'FRAME', 'GROUP', 'RECT', 'ELLIPSE', 'LINE', 'TEXT', 'COMPONENT', 'COMPONENT_SET', 'INSTANCE', 'VECTOR', 'EMBED']);
 
 /** Structural integrity check; throws DocumentError on the first problem. Used on every server write. */
 export function validateDocument(doc: DocumentData): void {
@@ -54,6 +54,8 @@ export function validateDocument(doc: DocumentData): void {
     if (n.strokeBrush && !['CHARCOAL', 'MARKER', 'CHALK', 'INK'].includes(n.strokeBrush.id)) throw new DocumentError(`Node ${id} has an invalid brush`);
     if (n.strokeMiterAngle !== undefined && !(n.strokeMiterAngle >= 1 && n.strokeMiterAngle <= 180)) throw new DocumentError(`Node ${id} has an invalid miter angle`);
     if (n.boolOp && (n.type !== 'GROUP' || !['UNION', 'SUBTRACT', 'INTERSECT', 'EXCLUDE'].includes(n.boolOp))) throw new DocumentError(`Node ${id} has an invalid boolean operation`);
+    if (n.type === 'EMBED' && (!n.embed || typeof n.embed.fileId !== 'string' || !n.embed.fileId || typeof n.embed.fileName !== 'string' || n.embed.kind !== 'whiteboard' || n.children.length)) throw new DocumentError(`Embed ${id} is invalid`);
+    if (n.embed && n.type !== 'EMBED') throw new DocumentError(`Node ${id} has an embed but is not an embed`);
     if (n.type === 'TEXT' && !n.text) throw new DocumentError(`Text node ${id} lacks text props`);
     for (const p of [...n.fills, ...n.strokes]) if (p.type === 'IMAGE' && !doc.assets[p.assetId]) throw new DocumentError(`Missing asset ${p.assetId}`);
     if (n.blendMode !== undefined && !BLEND_MODES.includes(n.blendMode)) throw new DocumentError(`Node ${id} has an invalid blend mode`);

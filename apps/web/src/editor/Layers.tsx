@@ -7,7 +7,7 @@ import { BrandMark, Icon, type IconName } from '../icons';
 import { askText, askConfirm } from '../ui/dialogs';
 import { DesignSystemSection } from './DesignSystemPanel';
 
-const TYPE_ICON: Record<string, IconName> = { FRAME: 'frame', GROUP: 'group', RECT: 'rect', ELLIPSE: 'ellipse', LINE: 'line', TEXT: 'text', COMPONENT: 'component', COMPONENT_SET: 'components', INSTANCE: 'instance', VECTOR: 'pen' };
+const TYPE_ICON: Record<string, IconName> = { EMBED: 'whiteboard', FRAME: 'frame', GROUP: 'group', RECT: 'rect', ELLIPSE: 'ellipse', LINE: 'line', TEXT: 'text', COMPONENT: 'component', COMPONENT_SET: 'components', INSTANCE: 'instance', VECTOR: 'pen' };
 type DropPos = 'before' | 'inside' | 'after';
 
 function iconFor(n: SceneNode): IconName {

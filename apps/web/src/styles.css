@@ -1555,3 +1555,13 @@ select.sizing.chevsel { background: transparent url("data:image/svg+xml,%3Csvg x
 .gv-demo { display: flex; gap: 14px; padding: 16px 18px; border-radius: 16px; border: 1px solid rgba(99,102,241,.45); background: rgba(79,70,229,.1); } .gv-demo-ic { flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: #818cf8; background: rgba(79,70,229,.2); } .gv-demo-body { display: grid; gap: 6px; min-width: 0; } .gv-demo-body b { font-size: 13.5px; color: var(--fg); } .gv-demo-body p { margin: 0; font-size: 12px; line-height: 1.55; color: var(--fg2); }
 .gv-demo-btn { width: fit-content; margin-top: 4px; display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px; border-radius: 10px; background: var(--fg); color: var(--bg); font-size: 12.5px; font-weight: 600; text-decoration: none; transition: transform .12s, opacity .12s; } .gv-demo-btn:hover { transform: translateY(-1px); opacity: .9; }
 .gv-right { overflow-y: auto; } .gv-mid { padding: 6px 0; }
+
+/* the selected whiteboard card is live: the real whiteboard sits over the card body */
+.embed-live { position: absolute; z-index: 30; overflow: hidden; background: var(--bg2); --dock-scale: 1; border: 1px solid var(--line); border-top: 0; }
+.embed-live .jam { height: 100%; }
+.embed-live .jam-dock2, .embed-live .jam-opts { width: max-content; max-width: none; flex-wrap: nowrap; }
+.embed-live .jam-dock2 { transform: translateX(-50%) scale(var(--dock-scale)); transform-origin: 50% 100%; bottom: 8px; }
+.embed-live .jam-opts { transform: translateX(-50%) scale(var(--dock-scale)); transform-origin: 50% 100%; bottom: calc(8px + 84px * var(--dock-scale)); }
+.embed-send { position: absolute; z-index: 25; top: 8px; right: 8px; transform: scale(var(--dock-scale)); transform-origin: top right; border: 1px solid var(--line); background: var(--bg); border-radius: 99px; padding: 5px 12px; font-size: 12px; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+.embed-send:not(:disabled):hover { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.embed-drop { position: fixed; z-index: 80; pointer-events: none; background: #4f46e5; color: #fff; font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 99px; box-shadow: 0 6px 18px rgba(0,0,0,.35); }

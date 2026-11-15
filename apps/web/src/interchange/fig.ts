@@ -113,6 +113,7 @@ export async function exportFig(doc: DocumentData, fileName: string, getAsset: A
     switch (n.type) {
       case 'FRAME': case 'COMPONENT': case 'COMPONENT_SET': case 'INSTANCE': base.type = n.type === 'COMPONENT' ? 'SYMBOL' : 'FRAME'; base.frameMaskDisabled = !n.clipsContent; break;
       case 'GROUP': base.type = 'GROUP'; break;
+      case 'EMBED': base.type = 'ROUNDED_RECTANGLE'; break; // a whiteboard card exports as a plain rounded rectangle
       case 'RECT': base.type = n.cornerRadius || n.cornerRadii ? 'ROUNDED_RECTANGLE' : 'RECTANGLE'; break;
       case 'ELLIPSE': base.type = 'ELLIPSE'; break;
       case 'LINE': base.type = 'LINE'; base.size = { x: n.width, y: 0 }; break;

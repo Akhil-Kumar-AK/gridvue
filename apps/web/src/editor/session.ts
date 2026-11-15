@@ -218,6 +218,19 @@ export class EditorSession {
     } catch (e) { ui.toast((e as Error).message, 'error'); }
   }
 
+  /** Put a card that shows a whiteboard on the canvas (double-click opens the board). Several files can show the same board. */
+  insertWhiteboard(board: { id: string; name: string }) {
+    const ui = useEditor.getState();
+    if (!this.canEdit) return ui.toast('View-only: you cannot edit this file', 'error');
+    const cam = ui.camera, w = 640, h = 440;
+    const view = document.querySelector('[data-testid="design-canvas"]')?.getBoundingClientRect(); // centre of the canvas area, not of the whole window
+    const cx = cam.x + ((view?.width ?? window.innerWidth) / 2) / cam.zoom, cy = cam.y + ((view?.height ?? window.innerHeight) / 2) / cam.zoom;
+    const node = defaultNode('EMBED', { name: board.name, embed: { fileId: board.id, fileName: board.name, kind: 'whiteboard' }, width: w, height: h, x: Math.round(cx - w / 2), y: Math.round(cy - h / 2) });
+    this.store.transact('Insert whiteboard', () => { addNode(this.store, node, this.pageId); });
+    ui.set({ selection: [node.id], tool: 'select' });
+    ui.toast(`Added “${board.name}”. Work right inside the card; drag items out of it onto the design to make them editable layers.`);
+  }
+
   /** Paste layers copied in Figma (its clipboard HTML carries the layers as a compressed kiwi buffer). Returns false if the HTML is not from Figma. */
   pasteFigma(html: string): boolean {
     const buf = figmaBufferFromHtml(html);
